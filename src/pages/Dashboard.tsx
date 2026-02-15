@@ -3,7 +3,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SystemHealth } from "@/components/dashboard/SystemHealth";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { PendingActions } from "@/components/dashboard/PendingActions";
-import { RevenueBreakdown } from "@/components/dashboard/RevenueBreakdown";
+import RevenueBreakdown from "@/components/dashboard/RevenueBreakdown";
 
 const Dashboard = () => {
   return (
@@ -85,8 +85,8 @@ const Dashboard = () => {
 
         {/* Right Column - Pending Actions & Revenue */}
         <div className="space-y-6">
-          <PendingActions />
           <RevenueBreakdown />
+          <PendingActions />
         </div>
       </div>
     </div>

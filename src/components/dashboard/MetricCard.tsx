@@ -24,21 +24,23 @@ export const MetricCard = ({
     <div
       onClick={onClick}
       className={cn(
-        "metric-card group cursor-pointer",
-        onClick && ""
+        "group relative bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-5 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20 hover:shadow-xl hover:shadow-gray-300/50 dark:hover:shadow-black/30 transition-all duration-300 hover:-translate-y-0.5",
+        onClick && "cursor-pointer"
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-500/10 flex items-center justify-center group-hover:bg-orange-500/15 transition-colors">
-          <Icon className="w-5 h-5 text-gray-500" />
+      {/* Icon and Change Badge */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="w-12 h-12 rounded-[14px] bg-gradient-to-br from-[#F5F5F5] to-[#DFDFDF] dark:from-[#2D2B2B] dark:to-[#3A3737] flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-sm">
+          <Icon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
         </div>
+        
         {change && (
           <div
             className={cn(
-              "flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full",
-              changeType === "positive" && "text-success bg-success/10",
-              changeType === "negative" && "text-destructive bg-destructive/10",
-              changeType === "neutral" && "text-muted-foreground bg-muted"
+              "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm",
+              changeType === "positive" && "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+              changeType === "negative" && "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+              changeType === "neutral" && "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
             )}
           >
             {changeType === "positive" && <ArrowUp className="w-3 h-3" />}
@@ -47,13 +49,24 @@ export const MetricCard = ({
           </div>
         )}
       </div>
-      <div>
-        <h3 className="text-2xl font-bold text-foreground mb-1">{value}</h3>
-        <p className="text-sm text-muted-foreground">{title}</p>
+
+      {/* Content */}
+      <div className="space-y-1">
+        <p className="text-[12px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+          {title}
+        </p>
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+          {value}
+        </h3>
         {description && (
-          <p className="text-xs text-muted-foreground/70 mt-1">{description}</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-500 mt-1">
+            {description}
+          </p>
         )}
       </div>
+
+      {/* Subtle gradient overlay on hover */}
+      <div className="absolute inset-0 rounded-[20px] bg-gradient-to-br from-orange-500/0 to-orange-500/0 group-hover:from-orange-500/5 group-hover:to-transparent transition-all duration-300 pointer-events-none" />
     </div>
   );
 };
