@@ -25,12 +25,12 @@ export const MetricCard = ({
       onClick={onClick}
       className={cn(
         "metric-card group cursor-pointer",
-        onClick && "hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5"
+        onClick && ""
       )}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/15 transition-colors">
-          <Icon className="w-5 h-5 text-orange-500" />
+        <div className="w-10 h-10 rounded-full bg-gray-500/10 flex items-center justify-center group-hover:bg-orange-500/15 transition-colors">
+          <Icon className="w-5 h-5 text-gray-500" />
         </div>
         {change && (
           <div
