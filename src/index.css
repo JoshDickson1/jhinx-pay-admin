@@ -278,6 +278,16 @@
   }
 }
 
+/* In your CSS file */
+[data-radix-popper-content-wrapper] {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:focus {
+  outline: none !important;
+}
+
 @layer utilities {
   .font-mono {
     font-family: 'JetBrains Mono', monospace;

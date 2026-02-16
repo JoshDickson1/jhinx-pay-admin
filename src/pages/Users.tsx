@@ -1,6 +1,7 @@
 import { Users as UsersIcon, UserCheck, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { UserTable } from "@/components/users/UserTable";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Users = () => {
   return (
@@ -38,6 +39,35 @@ const Users = () => {
           description="Active last 30 days"
         />
       </div>
+
+      <div className="w-full flex justify-start py-6">
+      <Tabs defaultValue="pending" className="w-auto">
+        <TabsList className="bg-white dark:bg-[#1C1C1C] border border-gray-100 dark:border-white/5 h-14 p-1.5 rounded-full shadow-sm gap-2">
+          
+          <TabsTrigger 
+            value="all" 
+            className="rounded-full px-8 py-2.5 text-sm data-[state=active]:text-white font-medium data-[state=active]:bg-gradient-to-br from-orange-300 to-orange-600 transition-all"
+          >
+            All Users
+          </TabsTrigger>
+
+          <TabsTrigger 
+            value="pending" 
+            className="rounded-full px-8 py-2.5 text-sm font-medium data-[state=active]:bg-gradient-to-br from-orange-300 to-orange-600 data-[state=active]:text-white transition-all"
+          >
+            Pending KYC
+          </TabsTrigger>
+
+          <TabsTrigger 
+            value="flagged" 
+            className="rounded-full px-8 py-2.5 text-sm font-medium data-[state=active]:bg-gradient-to-br from-orange-300 to-orange-600 data-[state=active]:text-white transition-all"
+          >
+            Flagged Users
+          </TabsTrigger>
+          
+        </TabsList>
+      </Tabs>
+    </div>
 
       {/* User Table */}
       <UserTable />

@@ -180,7 +180,7 @@ export const UserTable = () => {
             <SelectTrigger className="w-32 h-11 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-full border-gray-200/50 dark:border-gray-700/30 text-[13px] shadow-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
-            <SelectContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px]">
+            <SelectContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] focus-visible:ring-0 focus-visible:ring-offset-0">
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="frozen">Frozen</SelectItem>
@@ -286,7 +286,7 @@ export const UserTable = () => {
                         <Button 
                           variant="ghost" 
                           size="icon"
-                          className="h-9 w-9 rounded-full hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B]"
+                          className="h-9 w-9 rounded-full hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] focus-visible:ring-0 focus-visible:ring-offset-0"
                         >
                           <MoreHorizontal className="w-[18px] h-[18px]" />
                         </Button>

@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   TicketCheck,
+  Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -175,12 +176,8 @@ export const AdminSidebar = () => {
     },
     {
       to: "/users",
-      icon: Users,
+      icon: Users2,
       label: "Users",
-      children: [
-        { to: "/users", label: "All Users" },
-        { to: "/users/kyc-pending", label: "KYC Pending", badge: 14 },
-      ],
     },
     {
       to: "/transactions",
@@ -189,8 +186,6 @@ export const AdminSidebar = () => {
       children: [
         { to: "/transactions", label: "All Transactions" },
         { to: "/transactions/gift-cards", label: "Gift Card Queue", badge: 23 },
-        { to: "/transactions/crypto", label: "Crypto Transactions" },
-        { to: "/transactions/games", label: "Game Recharges" },
       ],
     },
     {
