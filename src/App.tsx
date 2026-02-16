@@ -7,7 +7,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { NotificationsProvider } from "@/hooks/use-notifications";
 import Dashboard from "@/pages/Dashboard";
-import Analytics from "@/pages/Analytics";
+// import Analytics from "@/pages/Analytics";
 import Users from "@/pages/Users";
 import UserDetail from "@/pages/UserDetail";
 import Transactions from "@/pages/Transactions";
@@ -27,6 +27,7 @@ import Reports from "@/pages/Reports";
 import AdminProfiles from "@/pages/AdminProfiles";
 import MyProfile from "@/pages/MyProfile";
 import Preferences from "@/pages/Preferences";
+import SystemHealth from "./pages/SystemHealth";
 
 const queryClient = new QueryClient();
 
@@ -46,7 +47,7 @@ const App = () => (
                   <AdminLayout>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
-                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/system-health" element={<SystemHealth />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/users/kyc-pending" element={<Users />} />
                       <Route path="/users/:id" element={<UserDetail />} />

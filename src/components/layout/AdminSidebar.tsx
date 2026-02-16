@@ -170,7 +170,7 @@ export const AdminSidebar = () => {
       label: "Dashboard",
       children: [
         { to: "/", label: "Overview" },
-        { to: "/analytics", label: "Analytics" },
+        { to: "/system-health", label: "System Health" },
       ],
     },
     {

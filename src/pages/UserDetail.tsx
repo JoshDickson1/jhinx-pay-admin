@@ -1,9 +1,19 @@
 import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -40,19 +50,28 @@ import {
   Key,
   Download,
   Plus,
+  Eye,
+  Check,
+  X,
+  Info,
+  Pause,
+  Send,
+  ZoomIn,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Mock user data
 const userData = {
   id: "USR-001234",
-  name: "John Doe",
-  email: "john.doe@example.com",
+  name: "Obed Vine",
+  email: "beddv@gmail.com",
   phone: "+234 801 234 5678",
-  profilePhoto: null,
+  profilePhoto: "https://i.pravatar.cc/150?img=12",
   status: "active" as const,
   joinDate: "Jul 15, 2025",
   lastLogin: "2 hours ago",
-  kycTier: 2,
+  kycTier: 3,
   kycStatus: "approved" as const,
   kycSubmittedDate: "Aug 1, 2025",
   kycReviewedBy: "Admin Sarah",
@@ -65,13 +84,36 @@ const userData = {
     btc: 0.0023,
     eth: 0.15,
   },
-  kycDocuments: {
-    fullName: "John Adebayo Doe",
-    email: "john.doe@example.com",
-    phone: "+234 801 234 5678",
-    govId: "NIN-12345678901",
-    selfie: true,
+  riskAssessment: {
+    overallRating: 72,
+    accountAge: { value: "6 Months", risk: "Low" },
+    pastTrades: { value: 5, risk: "Low" },
+    totalVolume: { value: "$450", risk: "Low" },
+    lastTradeDate: { value: "Feb, 10 2:30pm", risk: "Low" },
+    cardAmount: { value: "$100", risk: "Mid" },
+    newDevice: { value: "Yes", risk: "Low" },
+    ipLocation: { value: "Lagos, Nigeria", risk: "Low" },
   },
+  cardDetails: {
+    brand: "Amazon",
+    cardValue: "$100",
+    cardCode: "AMA-BXTY-JJDV-2KNN",
+    appliedRate: "₦1,500/$1",
+    payoutAmount: "₦150,000",
+    submissionTime: "Jan 13, 2:30 PM",
+    timeElapse: "Jan 13, 2:30 PM",
+    paymentMethod: "Naira Wallet",
+    status: "Pending",
+    imageQuality: "Good Quality",
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/2560px-Amazon_logo.svg.png",
+  },
+  adminNotes: [
+    {
+      by: "Admin Vine",
+      note: "Looks valid, User has clean history, and can be trusted",
+      date: "Jan 13, 2:30 PM",
+    },
+  ],
   transactions: [
     { id: "TX-001", type: "Crypto Buy", amount: "₦45,000", status: "completed", date: "Jan 13, 2026" },
     { id: "TX-002", type: "Gift Card Sell", amount: "₦76,000", status: "completed", date: "Jan 12, 2026" },
@@ -83,67 +125,147 @@ const userData = {
     { action: "KYC Approved", by: "Admin Sarah", date: "Aug 1, 2025 • 2:30 PM" },
     { action: "Account Created", by: "System", date: "Jul 15, 2025 • 10:15 AM" },
   ],
-  notes: [
-    { by: "Admin Sarah", note: "User contacted support about delayed withdrawal on Jan 10 - resolved", date: "Jan 10, 2026" },
-  ],
 };
 
 const KycBadge = ({ tier }: { tier: number }) => {
-  const variants = {
-    0: "tier0",
-    1: "tier1",
-    2: "tier2",
-  } as const;
-  return <Badge variant={variants[tier as keyof typeof variants]}>Tier {tier}</Badge>;
+  const config = {
+    0: { label: "Tier 0", className: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300" },
+    1: { label: "Tier 1", className: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400" },
+    2: { label: "Tier 2", className: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400" },
+    3: { label: "Tier 3", className: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400" },
+  };
+  
+  return (
+    <Badge className={`${config[tier as keyof typeof config]?.className || config[0].className} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5`}>
+      {config[tier as keyof typeof config]?.label || "Tier 0"}
+    </Badge>
+  );
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const variants: Record<string, "active" | "frozen" | "banned"> = {
-    active: "active",
-    frozen: "frozen",
-    banned: "banned",
+  const config: Record<string, string> = {
+    active: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    frozen: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400",
+    banned: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
   };
-  return <Badge variant={variants[status]} className="capitalize">{status}</Badge>;
+
+  return (
+    <Badge className={`${config[status] || config.active} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5 capitalize`}>
+      {status}
+    </Badge>
+  );
+};
+
+const RiskBadge = ({ risk }: { risk: string }) => {
+  const config: Record<string, string> = {
+    Low: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    Mid: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
+    High: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+  };
+
+  return (
+    <Badge className={`${config[risk] || config.Low} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5`}>
+      {risk}
+    </Badge>
+  );
 };
 
 const UserDetail = () => {
   const { id } = useParams();
+  const [newNote, setNewNote] = useState("");
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+
+  const handleApprove = () => {
+    // Handle approval logic and send email
+    console.log("Approved with message:", emailMessage);
+    setApproveDialogOpen(false);
+  };
+
+  const handleReject = () => {
+    // Handle rejection logic and send email
+    console.log("Rejected with message:", emailMessage);
+    setRejectDialogOpen(false);
+  };
+
+  const getRiskColor = (rating: number) => {
+    if (rating >= 70) return "text-orange-600 dark:text-orange-400";
+    if (rating >= 40) return "text-yellow-600 dark:text-yellow-400";
+    return "text-green-600 dark:text-green-400";
+  };
+
+  const getRiskGradient = (rating: number) => {
+    const percentage = rating;
+    const greenWidth = Math.min(percentage, 33);
+    const yellowWidth = Math.min(Math.max(percentage - 33, 0), 34);
+    const orangeWidth = Math.max(percentage - 67, 0);
+    
+    return (
+      <div className="flex h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div className="bg-green-500" style={{ width: `${greenWidth}%` }} />
+        <div className="bg-yellow-500" style={{ width: `${yellowWidth}%` }} />
+        <div className="bg-orange-500" style={{ width: `${orangeWidth}%` }} />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link to="/users">
-          <Button variant="ghost" size="icon">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="h-10 w-10 rounded-full hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B]"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">{userData.name}</h1>
-          <p className="text-muted-foreground">{userData.id}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{userData.name}</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-[13px]">{userData.id}</p>
         </div>
+        <Link to="/users">
+          <Button
+            variant="outline"
+            className="h-10 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] gap-2 shadow-sm text-[13px] font-medium"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            View user profile
+          </Button>
+        </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              className="h-10 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] gap-2 shadow-sm text-[13px] font-medium"
+            >
               Actions
-              <ChevronDown className="w-4 h-4 ml-2" />
+              <ChevronDown className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem>
+          <DropdownMenuContent 
+            align="end" 
+            className="w-48 bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2"
+          >
+            <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer">
               <Key className="w-4 h-4 mr-2" />
               Reset Password
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer">
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-warning">
+            <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
+            <DropdownMenuItem className="text-orange-600 dark:text-orange-400 rounded-[10px] text-[13px] cursor-pointer">
               <AlertTriangle className="w-4 h-4 mr-2" />
               Freeze Account
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-red-600 dark:text-red-400 rounded-[10px] text-[13px] cursor-pointer">
               <Ban className="w-4 h-4 mr-2" />
               Ban Account
             </DropdownMenuItem>
@@ -152,244 +274,362 @@ const UserDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Profile & KYC */}
+        {/* Left Column - Profile & Risk Assessment */}
         <div className="space-y-6">
           {/* Profile Card */}
-          <Card className="bg-surface-1 border-border">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-orange-500/15 flex items-center justify-center mb-4">
-                  <User className="w-10 h-10 text-orange-500" />
-                </div>
-                <h2 className="text-lg font-semibold text-foreground">{userData.name}</h2>
-                <p className="text-sm text-muted-foreground mb-3">{userData.email}</p>
-                <div className="flex items-center gap-2">
-                  <KycBadge tier={userData.kycTier} />
-                  <StatusBadge status={userData.status} />
-                </div>
+          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-orange-200/50 dark:ring-orange-500/30 mb-4">
+                <img 
+                  src={userData.profilePhoto} 
+                  alt={userData.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `
+                        <div class="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                          <span class="text-white text-2xl font-semibold">${userData.name.charAt(0)}</span>
+                        </div>
+                      `;
+                    }
+                  }}
+                />
               </div>
-
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{userData.email}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{userData.phone}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Joined</span>
-                  <span className="text-foreground">{userData.joinDate}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Last login</span>
-                  <span className="text-foreground">{userData.lastLogin}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Smartphone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{userData.device} • {userData.os}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{userData.location}</span>
-                </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{userData.name}</h2>
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 mb-3">{userData.email}</p>
+              <div className="flex items-center gap-2">
+                <KycBadge tier={userData.kycTier} />
+                <StatusBadge status={userData.status} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* KYC Information */}
-          <Card className="bg-surface-1 border-border">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">KYC Information</CardTitle>
-                <Badge variant="success">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Verified
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-3 text-[13px]">
+                <Mail className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-900 dark:text-white truncate">{userData.email}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[13px]">
+                <Phone className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-900 dark:text-white">{userData.phone}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[13px]">
+                <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-600 dark:text-gray-400">Joined</span>
+                <span className="text-gray-900 dark:text-white ml-auto">{userData.joinDate}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[13px]">
+                <Clock className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-600 dark:text-gray-400">Last login</span>
+                <span className="text-gray-900 dark:text-white ml-auto">{userData.lastLogin}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[13px]">
+                <Smartphone className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-900 dark:text-white truncate">{userData.device} • {userData.os}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[13px]">
+                <MapPin className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-900 dark:text-white">{userData.location}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Risk Assessment */}
+          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[18px] font-bold text-gray-900 dark:text-white">Risk Assessment</h3>
+              <span className="text-[11px] text-gray-500 dark:text-gray-500">Last updated: 2 mins ago</span>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-medium text-gray-600 dark:text-gray-400">Overall Risk Rating</span>
+                <Badge className="bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5">
+                  {userData.riskAssessment.overallRating}/100 Mid
                 </Badge>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Current Tier</span>
-                  <KycBadge tier={userData.kycTier} />
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Submitted</span>
-                  <span className="text-foreground">{userData.kycSubmittedDate}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Reviewed by</span>
-                  <span className="text-foreground">{userData.kycReviewedBy}</span>
-                </div>
-              </div>
+              {getRiskGradient(userData.riskAssessment.overallRating)}
+            </div>
 
-              <div className="border-t border-border pt-4">
-                <p className="text-xs text-muted-foreground mb-3">Verified Documents</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span className="text-foreground">Full Name: {userData.kycDocuments.fullName}</span>
+            <div className="space-y-3">
+              {Object.entries(userData.riskAssessment).filter(([key]) => key !== 'overallRating').map(([key, data]) => (
+                <div key={key} className="flex items-center justify-between p-3 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px]">
+                  <div className="flex-1">
+                    <span className="text-[12px] text-gray-600 dark:text-gray-400 capitalize">
+                      {key.replace(/([A-Z])/g, ' $1').trim()}:
+                    </span>
+                    <span className="text-[13px] font-medium text-gray-900 dark:text-white ml-2">
+                      {typeof data === 'object' ? data.value : data}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span className="text-foreground">Government ID</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span className="text-foreground">Selfie Verification</span>
-                  </div>
+                  {typeof data === 'object' && data.risk && <RiskBadge risk={data.risk} />}
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1">View Documents</Button>
-                <Button variant="accent-outline" size="sm" className="flex-1">Request Update</Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Admin Notes */}
+          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
+            <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-4">Admin Notes:</h3>
+            
+            <div className="space-y-3 mb-4">
+              {userData.adminNotes.map((note, idx) => (
+                <div key={idx} className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[12px] font-semibold text-orange-600 dark:text-orange-400">
+                      By: {note.by}
+                    </span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-500">{note.date}</span>
+                  </div>
+                  <p className="text-[13px] text-gray-700 dark:text-gray-300">{note.note}</p>
+                </div>
+              ))}
+            </div>
 
-          {/* Account Balances */}
-          <Card className="bg-surface-1 border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Wallet className="w-4 h-4" />
-                Account Balances
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center p-3 rounded-lg bg-surface-2">
-                <span className="text-sm text-muted-foreground">Naira</span>
-                <span className="text-sm font-semibold text-foreground">₦{userData.balances.naira.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-surface-2">
-                <span className="text-sm text-muted-foreground">USDT</span>
-                <span className="text-sm font-semibold text-foreground">${userData.balances.usdt.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-surface-2">
-                <span className="text-sm text-muted-foreground">BTC</span>
-                <span className="text-sm font-semibold text-foreground">{userData.balances.btc} BTC</span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-surface-2">
-                <span className="text-sm text-muted-foreground">ETH</span>
-                <span className="text-sm font-semibold text-foreground">{userData.balances.eth} ETH</span>
-              </div>
-            </CardContent>
-          </Card>
+            <Textarea
+              placeholder="Add a note..."
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[14px] mb-3 text-[13px] min-h-[80px]"
+            />
+            <Button 
+              variant="outline"
+              size="sm"
+              className="w-full h-9 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/30 text-[13px]"
+            >
+              Save note
+            </Button>
+          </div>
         </div>
 
-        {/* Right Column - Transactions & Activity */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="transactions" className="space-y-4">
-            <TabsList className="bg-surface-1 border border-border">
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-              <TabsTrigger value="audit">Audit Log</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-            </TabsList>
+        {/* Right Column - Card Details */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
+            <h3 className="text-[20px] font-bold text-gray-900 dark:text-white mb-6">Card Details</h3>
 
-            <TabsContent value="transactions">
-              <Card className="bg-surface-1 border-border">
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <CardTitle className="text-base">Transaction History</CardTitle>
-                  <Button variant="accent-outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Brand:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.brand}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Card Value:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.cardValue}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Card Code:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white font-mono">{userData.cardDetails.cardCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Applied Rate:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.appliedRate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Payout Amount:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.payoutAmount}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Submission Time:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.submissionTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Time Elapse:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.timeElapse}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Payment Method:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.paymentMethod}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Status:</span>
+                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.status}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Uploaded Image */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[15px] font-semibold text-gray-900 dark:text-white">Uploaded Image</h4>
+                <Badge className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5">
+                  {userData.cardDetails.imageQuality}
+                </Badge>
+              </div>
+              
+              <div className="relative bg-orange-500 rounded-[16px] p-8 mb-3">
+                <img 
+                  src={userData.cardDetails.imageUrl} 
+                  alt="Card Preview" 
+                  className="w-full h-auto"
+                />
+              </div>
+
+              <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    className="w-full h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px] font-medium"
+                  >
+                    <ZoomIn className="w-4 h-4 mr-2" />
+                    Preview Image
                   </Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border hover:bg-transparent">
-                        <TableHead className="text-muted-foreground">ID</TableHead>
-                        <TableHead className="text-muted-foreground">Type</TableHead>
-                        <TableHead className="text-muted-foreground">Amount</TableHead>
-                        <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-muted-foreground">Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {userData.transactions.map((tx) => (
-                        <TableRow key={tx.id} className="border-border hover:bg-surface-2">
-                          <TableCell className="font-mono text-sm text-foreground">{tx.id}</TableCell>
-                          <TableCell className="text-foreground">{tx.type}</TableCell>
-                          <TableCell className="font-medium text-foreground">{tx.amount}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                tx.status === "completed" ? "success" :
-                                tx.status === "pending" ? "warning" : "error"
-                              }
-                            >
-                              {tx.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{tx.date}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="audit">
-              <Card className="bg-surface-1 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Account Audit Log</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {userData.auditLog.map((log, idx) => (
-                      <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-surface-2">
-                        <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center">
-                          <Shield className="w-4 h-4 text-orange-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">{log.action}</p>
-                          <p className="text-xs text-muted-foreground">by {log.by}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{log.date}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="notes">
-              <Card className="bg-surface-1 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Admin Notes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {userData.notes.map((note, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-surface-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-orange-500">{note.by}</span>
-                        <span className="text-xs text-muted-foreground">{note.date}</span>
-                      </div>
-                      <p className="text-sm text-foreground">{note.note}</p>
-                    </div>
-                  ))}
-
-                  <div className="border-t border-border pt-4">
-                    <Textarea
-                      placeholder="Add a note about this user..."
-                      className="bg-surface-2 border-border mb-3"
-                      rows={3}
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-[18px] font-bold">Card Image Preview</DialogTitle>
+                  </DialogHeader>
+                  <div className="bg-orange-500 rounded-[16px] p-12">
+                    <img 
+                      src={userData.cardDetails.imageUrl} 
+                      alt="Card Full Preview" 
+                      className="w-full h-auto"
                     />
-                    <Button variant="accent" size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Note
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {/* Approve Dialog */}
+              <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="h-11 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/30 text-[13px]">
+                    <Check className="w-4 h-4 mr-2" />
+                    Approve
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-[18px] font-bold">Approve Transaction</DialogTitle>
+                    <DialogDescription className="text-[13px]">
+                      Send an approval email to the user confirming their transaction.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="subject" className="text-[13px] font-medium">Email Subject</Label>
+                      <Input
+                        id="subject"
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        placeholder="Transaction Approved - Amazon Gift Card"
+                        className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="message" className="text-[13px] font-medium">Email Message</Label>
+                      <Textarea
+                        id="message"
+                        value={emailMessage}
+                        onChange={(e) => setEmailMessage(e.target.value)}
+                        placeholder="Dear customer, your transaction has been approved and the payment of ₦150,000 has been credited to your wallet..."
+                        className="min-h-[120px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setApproveDialogOpen(false)}
+                      className="h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleApprove}
+                      className="h-10 rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold hover:from-green-600 hover:to-green-700 border-0 shadow-lg text-[13px]"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send & Approve
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Reject Dialog */}
+              <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    className="h-11 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-[13px] font-semibold"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Reject
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-[18px] font-bold">Reject Transaction</DialogTitle>
+                    <DialogDescription className="text-[13px]">
+                      Send a rejection email to the user explaining why their transaction was declined.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reject-subject" className="text-[13px] font-medium">Email Subject</Label>
+                      <Input
+                        id="reject-subject"
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        placeholder="Transaction Declined - Action Required"
+                        className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reject-message" className="text-[13px] font-medium">Email Message</Label>
+                      <Textarea
+                        id="reject-message"
+                        value={emailMessage}
+                        onChange={(e) => setEmailMessage(e.target.value)}
+                        placeholder="Dear customer, we regret to inform you that your transaction has been declined due to..."
+                        className="min-h-[120px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setRejectDialogOpen(false)}
+                      className="h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleReject}
+                      className="h-10 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold hover:from-red-600 hover:to-red-700 border-0 shadow-lg text-[13px]"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send & Reject
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Secondary Actions */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline"
+                className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
+              >
+                <Info className="w-4 h-4 mr-2" />
+                Request Info
+              </Button>
+              <Button 
+                variant="outline"
+                className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
+              >
+                <Pause className="w-4 h-4 mr-2" />
+                Hold for Review
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
