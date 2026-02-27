@@ -12,9 +12,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       <div className="">
         <AdminSidebar />
       </div>
-      <div className="lg:ml-80">
+      <div className="lg:ml-64">
         <AdminHeader />
-        <main className="p-4 lg:p-6 mt-14 lg:mt-0">
+        <main className="p-3 lg:p-4 mt-14 lg:mt-0">
           {children}
         </main>
       </div>

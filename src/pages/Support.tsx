@@ -1,430 +1,333 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Search, MoreHorizontal, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Search,
-  Filter,
-  MessageSquare,
-  Clock,
-  User,
-  Send,
-  Paperclip,
-  AlertCircle,
-  CheckCircle,
-  ExternalLink,
-} from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
 
 interface Ticket {
   id: string;
-  user: string;
-  email: string;
-  category: string;
-  subject: string;
-  status: "open" | "pending" | "resolved" | "closed";
-  priority: "high" | "medium" | "low";
-  created: string;
-  lastReply: string;
-  messages: {
-    sender: "user" | "admin";
+  user: {
     name: string;
-    message: string;
-    time: string;
-  }[];
+    email: string;
+    avatar: string;
+  };
+  subject: string;
+  priority: "High" | "Mid" | "Low";
+  status: "Open" | "Pending" | "Resolved" | "Closed";
+  lastReply: string;
+  date: string;
 }
 
-const mockTickets: Ticket[] = [
+const tickets: Ticket[] = [
   {
-    id: "#1234",
-    user: "@john_doe",
-    email: "john@example.com",
-    category: "Gift Cards",
-    subject: "Card not approved after 2 hours",
-    status: "open",
-    priority: "high",
-    created: "2 hours ago",
-    lastReply: "30 mins ago",
-    messages: [
-      {
-        sender: "user",
-        name: "John Doe",
-        message: "I submitted an Amazon $100 card 2 hours ago and it's still pending. Why?",
-        time: "Jan 13, 1:15 PM",
-      },
-      {
-        sender: "admin",
-        name: "Admin Sarah",
-        message: "Hi John, I'm checking your submission now. Can you confirm the card code you entered was correct?",
-        time: "Jan 13, 1:45 PM",
-      },
-      {
-        sender: "user",
-        name: "John Doe",
-        message: "Yes, the code is XXXX-XXXX-XXXX. It's definitely correct.",
-        time: "Jan 13, 3:42 PM",
-      },
-    ],
+    id: "#23122",
+    user: { name: "John Frank", email: "johnnyfrk@gmail.com", avatar: "https://i.pravatar.cc/150?img=12" },
+    subject: "Withdrawal delay",
+    priority: "High",
+    status: "Open",
+    lastReply: "50 min",
+    date: "Jan 13, 2:30 PM",
   },
   {
-    id: "#1235",
-    user: "@mary_k",
-    email: "mary@example.com",
-    category: "Crypto",
-    subject: "Transaction stuck in pending",
-    status: "pending",
-    priority: "medium",
-    created: "1 day ago",
-    lastReply: "5 hours ago",
-    messages: [
-      {
-        sender: "user",
-        name: "Mary K",
-        message: "My USDT withdrawal has been pending for 24 hours. Transaction ID: TX-2026-005678",
-        time: "Jan 12, 10:00 AM",
-      },
-    ],
+    id: "#23123",
+    user: { name: "Obed Vine", email: "beddv@gmail.com", avatar: "https://i.pravatar.cc/150?img=33" },
+    subject: "Gift card issue",
+    priority: "Mid",
+    status: "Pending",
+    lastReply: "41 min",
+    date: "Jan 12, 1:30 PM",
   },
   {
-    id: "#1236",
-    user: "@tunde99",
-    email: "tunde@example.com",
-    category: "Games",
+    id: "#23124",
+    user: { name: "Wizz John", email: "wizzy@gmail.com", avatar: "https://i.pravatar.cc/150?img=15" },
+    subject: "Login problem",
+    priority: "Low",
+    status: "Open",
+    lastReply: "32 min",
+    date: "Jan 12, 12:30 PM",
+  },
+  {
+    id: "#23125",
+    user: { name: "Precious Chisom", email: "pcc@gmail.com", avatar: "https://i.pravatar.cc/150?img=45" },
     subject: "Wrong player ID charged",
-    status: "open",
-    priority: "high",
-    created: "3 hours ago",
-    lastReply: "1 hour ago",
-    messages: [
-      {
-        sender: "user",
-        name: "Tunde Ade",
-        message: "I recharged COD Mobile but the CP went to the wrong player ID. Please help!",
-        time: "Jan 13, 11:00 AM",
-      },
-    ],
+    priority: "Low",
+    status: "Resolved",
+    lastReply: "22 min",
+    date: "Jan 12, 10:30 AM",
   },
   {
-    id: "#1237",
-    user: "@alex_smith",
-    email: "alex@example.com",
-    category: "Account",
+    id: "#23126",
+    user: { name: "Benedita Josh", email: "bennyj@gmail.com", avatar: "https://i.pravatar.cc/150?img=47" },
     subject: "Unable to login",
-    status: "resolved",
-    priority: "low",
-    created: "2 days ago",
-    lastReply: "1 day ago",
-    messages: [],
+    priority: "High",
+    status: "Pending",
+    lastReply: "10 min",
+    date: "Jan 12, 6:30 AM",
   },
   {
-    id: "#1238",
-    user: "@jane_w",
-    email: "jane@example.com",
-    category: "Gift Cards",
-    subject: "Rate discrepancy",
-    status: "closed",
-    priority: "low",
-    created: "3 days ago",
-    lastReply: "2 days ago",
-    messages: [],
+    id: "#23128",
+    user: { name: "Charity Frank", email: "johnnyfrk@gmail.com", avatar: "https://i.pravatar.cc/150?img=26" },
+    subject: "Card not approved",
+    priority: "High",
+    status: "Resolved",
+    lastReply: "5 min",
+    date: "Jan 12, 2:30 AM",
   },
 ];
 
-const StatusBadge = ({ status }: { status: Ticket["status"] }) => {
-  const variants: Record<Ticket["status"], { variant: "success" | "warning" | "info" | "default"; label: string }> = {
-    open: { variant: "warning", label: "Open" },
-    pending: { variant: "info", label: "Pending" },
-    resolved: { variant: "success", label: "Resolved" },
-    closed: { variant: "default", label: "Closed" },
+const PriorityBadge = ({ priority }: { priority: Ticket["priority"] }) => {
+  const config = {
+    High: "border border-red-400 text-red-500 dark:text-red-400 bg-transparent",
+    Mid: "border border-orange-400 text-orange-500 dark:text-orange-400 bg-transparent",
+    Low: "border border-green-400 text-green-600 dark:text-green-400 bg-transparent",
   };
-  const { variant, label } = variants[status];
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Badge className={`${config[priority]} rounded-full text-[12px] font-semibold px-3 py-1`}>
+      {priority}
+    </Badge>
+  );
 };
 
-const PriorityBadge = ({ priority }: { priority: Ticket["priority"] }) => {
-  const variants: Record<Ticket["priority"], { variant: "error" | "warning" | "default"; label: string }> = {
-    high: { variant: "error", label: "High" },
-    medium: { variant: "warning", label: "Medium" },
-    low: { variant: "default", label: "Low" },
+const StatusBadge = ({ status }: { status: Ticket["status"] }) => {
+  const config = {
+    Open: "border border-blue-400 text-blue-600 dark:text-blue-400 bg-transparent",
+    Pending: "border border-orange-400 text-orange-500 dark:text-orange-400 bg-transparent",
+    Resolved: "border border-green-400 text-green-600 dark:text-green-400 bg-transparent",
+    Closed: "border border-gray-400 text-gray-500 dark:text-gray-400 bg-transparent",
   };
-  const { variant, label } = variants[priority];
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Badge className={`${config[status]} rounded-full text-[12px] font-semibold px-3 py-1`}>
+      {status}
+    </Badge>
+  );
 };
 
 const Support = () => {
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [replyText, setReplyText] = useState("");
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
-  const filteredTickets = mockTickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
-
-  const openCount = mockTickets.filter((t) => t.status === "open").length;
-  const pendingCount = mockTickets.filter((t) => t.status === "pending").length;
-  const resolvedToday = 12;
+  const filteredTickets = tickets.filter(
+    (t) =>
+      t.subject.toLowerCase().includes(search.toLowerCase()) ||
+      t.user.name.toLowerCase().includes(search.toLowerCase()) ||
+      t.id.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Support Tickets</h1>
-          <p className="text-muted-foreground">Manage customer support requests</p>
-        </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Page Header */}
+      <div className="px-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Tickets</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1 text-[13px]">
+          Manage and respond to user support submissions
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-surface-1 border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{openCount}</p>
-                <p className="text-sm text-muted-foreground">Open Tickets</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-surface-1 border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-info" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{pendingCount}</p>
-                <p className="text-sm text-muted-foreground">Pending Response</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-surface-1 border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{resolvedToday}</p>
-                <p className="text-sm text-muted-foreground">Resolved Today</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Main Card */}
+      <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20 overflow-hidden">
 
-      {/* Filters */}
-      <Card className="bg-surface-1 border-border">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by ticket ID, user, or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-surface-2 border-border"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[150px] bg-surface-2 border-border">
+        {/* Filters */}
+        <div className="p-5 flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+            <Input
+              placeholder="Search by ID or user...."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-11 pr-4 h-12 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-full border-transparent hover:border-gray-200 dark:hover:border-gray-700/50 focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 focus-visible:ring-offset-0 text-[13px] placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-300"
+            />
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Select defaultValue="all">
+              <SelectTrigger className="h-12 px-4 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-full border-transparent text-[13px] font-medium min-w-[130px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+              <SelectContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px]">
+                <SelectItem value="all">Status: All</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-full md:w-[150px] bg-surface-2 border-border">
+            <Select defaultValue="all">
+              <SelectTrigger className="h-12 px-4 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-full border-transparent text-[13px] font-medium min-w-[130px]">
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
+              <SelectContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px]">
+                <SelectItem value="all">Priority: All</SelectItem>
                 <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="mid">Mid</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
               </SelectContent>
             </Select>
+            <Select defaultValue="all">
+              <SelectTrigger className="h-12 px-4 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-full border-transparent text-[13px] font-medium min-w-[140px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px]">
+                <SelectItem value="all">Category: All</SelectItem>
+                <SelectItem value="payment">Payment</SelectItem>
+                <SelectItem value="account">Account</SelectItem>
+                <SelectItem value="giftcard">Gift Card</SelectItem>
+                <SelectItem value="crypto">Crypto</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Tickets Table */}
-      <Card className="bg-surface-1 border-border">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Ticket ID</TableHead>
-                <TableHead className="text-muted-foreground">User</TableHead>
-                <TableHead className="text-muted-foreground">Category</TableHead>
-                <TableHead className="text-muted-foreground">Subject</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Priority</TableHead>
-                <TableHead className="text-muted-foreground">Created</TableHead>
-                <TableHead className="text-muted-foreground">Last Reply</TableHead>
-                <TableHead className="text-muted-foreground text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTickets.map((ticket) => (
-                <TableRow
-                  key={ticket.id}
-                  className="border-border hover:bg-surface-2 cursor-pointer"
-                  onClick={() => setSelectedTicket(ticket)}
+        {/* Table */}
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full">
+            <thead className="bg-[#F5F5F5]/50 dark:bg-[#2D2B2B]/50">
+              <tr>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Ticket ID</th>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">User</th>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Subject</th>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Priority</th>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                <th className="text-left p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Last Reply</th>
+                <th className="text-right p-4 text-[12px] font-semibold text-gray-600 dark:text-gray-400">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTickets.map((ticket, index) => (
+                <tr
+                  key={`${ticket.id}-${index}`}
+                  className="hover:bg-[#F5F5F5]/40 dark:hover:bg-[#2D2B2B]/40 cursor-pointer transition-all duration-200 border-t border-gray-200/30 dark:border-gray-700/20"
+                  onClick={() => navigate(`/support/${ticket.id.replace("#", "")}`)}
                 >
-                  <TableCell className="font-mono text-sm text-foreground">{ticket.id}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{ticket.user}</p>
-                      <p className="text-xs text-muted-foreground">{ticket.email}</p>
+                  {/* Ticket ID */}
+                  <td className="p-4">
+                    <p className="font-bold text-[14px] text-gray-900 dark:text-white">{ticket.id}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-500">{ticket.date}</p>
+                  </td>
+
+                  {/* User */}
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-gray-200/50 dark:ring-gray-700/50 flex-shrink-0">
+                        <img
+                          src={ticket.user.avatar}
+                          alt={ticket.user.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const p = e.currentTarget.parentElement;
+                            if (p) p.innerHTML = `<div class="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center"><span class="text-white text-sm font-semibold">${ticket.user.name.charAt(0)}</span></div>`;
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[13px] text-gray-900 dark:text-white truncate">{ticket.user.name}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-500 truncate">{ticket.user.email}</p>
+                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{ticket.category}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-foreground">{ticket.subject}</TableCell>
-                  <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                  <TableCell><PriorityBadge priority={ticket.priority} /></TableCell>
-                  <TableCell className="text-muted-foreground">{ticket.created}</TableCell>
-                  <TableCell className="text-muted-foreground">{ticket.lastReply}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedTicket(ticket);
-                      }}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                  </td>
+
+                  {/* Subject */}
+                  <td className="p-4">
+                    <span className="text-[14px] text-gray-900 dark:text-white">{ticket.subject}</span>
+                  </td>
+
+                  {/* Priority */}
+                  <td className="p-4">
+                    <PriorityBadge priority={ticket.priority} />
+                  </td>
+
+                  {/* Status */}
+                  <td className="p-4">
+                    <StatusBadge status={ticket.status} />
+                  </td>
+
+                  {/* Last Reply */}
+                  <td className="p-4">
+                    <span className="text-[13px] text-gray-600 dark:text-gray-400">{ticket.lastReply}</span>
+                  </td>
+
+                  {/* Action */}
+                  <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="w-9 h-9 rounded-full text-black dark:text-white flex items-center justify-center transition-colors duration-200 ml-auto">
+                          <MoreHorizontal className="w-4 h-4 text-current" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2"
+                      >
+                        <DropdownMenuItem
+                          className="rounded-[10px] text-[13px] cursor-pointer"
+                          onClick={() => navigate(`/support/${ticket.id.replace("#", "")}`)}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          View & Reply
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer text-green-600 dark:text-green-400">
+                          Mark as Resolved
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer text-red-600 dark:text-red-400">
+                          Close Ticket
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
 
-      {/* Ticket Detail Dialog */}
-      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-surface-1 border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Ticket {selectedTicket?.id}</span>
-              <div className="flex items-center gap-2">
-                {selectedTicket && <StatusBadge status={selectedTicket.status} />}
-                {selectedTicket && <PriorityBadge priority={selectedTicket.priority} />}
-              </div>
-            </DialogTitle>
-          </DialogHeader>
+        {/* Pagination */}
+        <div className="p-5 bg-[#F5F5F5]/20 dark:bg-[#2D2B2B]/20 flex items-center justify-between border-t border-gray-200/30 dark:border-gray-700/20">
+          <p className="text-[13px] text-gray-600 dark:text-gray-400">
+            Showing <span className="font-bold text-gray-900 dark:text-white">1-7</span> of{" "}
+            <span className="font-bold text-gray-900 dark:text-white">5,648</span> submission
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 text-[13px] font-medium"
+              disabled
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </div>
 
-          {selectedTicket && (
-            <div className="flex-1 overflow-hidden flex flex-col">
-              {/* Ticket Info */}
-              <div className="p-4 bg-surface-2 rounded-lg mb-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium text-foreground">{selectedTicket.user}</span>
-                    <span className="text-xs text-muted-foreground">{selectedTicket.email}</span>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-orange-500">
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    View Profile
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Category:</span> {selectedTicket.category} • 
-                  <span className="font-medium ml-2">Subject:</span> {selectedTicket.subject}
-                </p>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-                {selectedTicket.messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-lg ${
-                      msg.sender === "admin"
-                        ? "bg-orange-500/8 border border-orange-500/15 ml-8"
-                        : "bg-surface-2 mr-8"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-sm font-medium ${msg.sender === "admin" ? "text-orange-500" : "text-foreground"}`}>
-                        {msg.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{msg.time}</span>
-                    </div>
-                    <p className="text-sm text-foreground">{msg.message}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Reply Box */}
-              <div className="border-t border-border pt-4">
-                <Textarea
-                  placeholder="Type your reply..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="mb-3 bg-surface-2 border-border"
-                  rows={3}
-                />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">
-                      <Paperclip className="w-4 h-4" />
-                    </Button>
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input type="checkbox" className="rounded border-border" />
-                      Send email notification
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">Add Internal Note</Button>
-                    <Button variant="accent" size="sm">
-                      <Send className="w-4 h-4 mr-2" />
-                      Send Reply
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <style>{`
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+        .custom-scrollbar:hover { scrollbar-color: rgba(156,163,175,0.3) transparent; }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.3); }
+        .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(75,85,99,0.4); }
+      `}</style>
     </div>
   );
 };

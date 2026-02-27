@@ -56,8 +56,9 @@ const App = () => (
                       <Route path="/transactions/gift-cards/:id" element={<GiftCardReview />} />
                       <Route path="/transactions/crypto" element={<Transactions />} />
                       <Route path="/transactions/games" element={<Transactions />} />
-                      <Route path="/support" element={<Support />} />
-                      <Route path="/support/help-center" element={<HelpCenter />} />
+                      <Route path="/support-tickets" element={<Support />} />
+                      <Route path="/support-tickets/:id" element={<Support />} />
+                      <Route path="/support" element={<HelpCenter />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/settings/rates" element={<Settings />} />
                       <Route path="/settings/limits" element={<TransactionLimits />} />
