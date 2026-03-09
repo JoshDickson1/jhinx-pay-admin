@@ -28,6 +28,7 @@ import AdminProfiles from "@/pages/AdminProfiles";
 import MyProfile from "@/pages/MyProfile";
 import Preferences from "@/pages/Preferences";
 import SystemHealth from "./pages/SystemHealth";
+import AllNotifications from "./pages/AllNotifications";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
                       <Route path="/admin-profiles" element={<AdminProfiles />} />
                       <Route path="/profile" element={<MyProfile />} />
                       <Route path="/preferences" element={<Preferences />} />
+                      <Route path="/notifications" element={<AllNotifications />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AdminLayout>

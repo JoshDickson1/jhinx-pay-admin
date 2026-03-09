@@ -116,7 +116,7 @@ export const AdminHeader = () => {
               >
                 {/* Profile Header */}
                 <DropdownMenuLabel className="px-2.5 py-2.5">
-                  <div className="flex items-center gap-2.5">
+                  <Link to="/profile" className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-orange-200/50 dark:ring-orange-500/30">
                       <img 
                         src="https://ca.slack-edge.com/T08BN2VF2GL-U0A25LVCYL9-11f7983440b6-512" 
@@ -142,7 +142,7 @@ export const AdminHeader = () => {
                         Super Admin
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 </DropdownMenuLabel>
                 
                 <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30 my-1.5" />

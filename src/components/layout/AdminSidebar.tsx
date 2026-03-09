@@ -18,6 +18,9 @@ import {
   Users2,
   MessageCircle,
   Ticket,
+  Settings2,
+  TrendingUp,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -166,9 +169,9 @@ export const AdminSidebar = () => {
     {
       to: "/",
       icon: LayoutDashboard,
-      label: "Dashboard",
+      label: "Overview",
       children: [
-        { to: "/", label: "Overview" },
+        { to: "/", label: "Dashboard" },
         { to: "/system-health", label: "System Health" },
       ],
     },
@@ -180,7 +183,7 @@ export const AdminSidebar = () => {
     {
       to: "/transactions",
       icon: ArrowLeftRight,
-      label: "Transactions",
+      label: "Transactions & Ops",
       children: [
         { to: "/transactions", label: "All Transactions" },
         { to: "/transactions/gift-cards", label: "Gift Card Queue", badge: 23 },
@@ -190,6 +193,18 @@ export const AdminSidebar = () => {
       to: "/support-tickets",
       icon: Ticket,
       label: "Support Tickets",
+      badge: 8,
+    },
+    {
+      to: "/rate-controls",
+      icon: Settings2,
+      label: "Rate Controls",
+      badge: 8,
+    },
+    {
+      to: "/analytics",
+      icon: TrendingUp,
+      label: "Analytics & Reports",
       badge: 8,
     },
     {
@@ -210,25 +225,20 @@ export const AdminSidebar = () => {
       label: "Admin Profiles",
     },
     {
-      to: "/reports",
-      icon: FileText,
-      label: "Reports",
-      children: [
-        { to: "/reports", label: "Generate Report" },
-        { to: "/reports/export", label: "Export Data" },
-      ],
+      to: "/help-center",
+      icon: HelpCircle,
+      label: "Help Center",
     },
-    { to: "/audit-log", icon: Shield, label: "Audit Log" },
   ];
-
+  
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-2xl">
       {/* Logo */}
       <div className="px-4 py-3.5 border-b border-gray-200/30 dark:border-gray-700/30">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-50 via-zinc-200 to-zinc-100 dark:from-zinc-600 dark:via-zinc-500 dark:to-zinc-400 flex items-center justify-center shadow-lg shadow-orange-500/30">
             <img 
-              src="/logo-light.svg" 
+              src="/square.svg" 
               alt="JP" 
               className="w-5 h-5"
               onError={(e) => {
