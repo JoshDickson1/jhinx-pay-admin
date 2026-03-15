@@ -45,7 +45,7 @@ export const AdminHeader = () => {
         </Link>
 
         {/* Mobile Profile Dropdown */}
-        <div className="ml-0.5 bg-gradient-to-r from-[#FFE6B0]/30 via-[#FFD98A]/20 to-transparent dark:from-[#E7E7E7]/5 dark:to-[#E7E7E7]/5 pl-2 pr-1 py-0.5 rounded-full backdrop-blur-sm border border-orange-200/30 dark:border-orange-500/20">
+        <div className=" bg-gradient-to-r from-[#FFE6B0]/30 via-[#FFD98A]/20 to-transparent dark:from-[#E7E7E7]/5 dark:to-[#E7E7E7]/5 pl-1 pr-1 pt-1 justify-center items-center rounded-full backdrop-blur-sm border border-orange-200/30 dark:border-orange-500/20">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="gap-1.5 bg-transparent shadow-none border-none hover:bg-transparent focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto">
@@ -67,9 +67,9 @@ export const AdminHeader = () => {
                     </div>
                     <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border-2 border-white dark:border-[#1C1C1C]" />
                   </div>
-                  <div className="w-5 h-5 bg-white/80 dark:bg-[#2D2B2B] rounded-full flex items-center justify-center">
+                  {/* <div className="w-5 h-5 bg-white/80 dark:bg-[#2D2B2B] rounded-full flex items-center justify-center">
                     <ChevronDown className="w-2.5 h-2.5 text-gray-600 dark:text-gray-400" />
-                  </div>
+                  </div> */}
                 </div>
               </Button>
             </DropdownMenuTrigger>
