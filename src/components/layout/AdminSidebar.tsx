@@ -368,7 +368,7 @@ export const AdminSidebar = () => {
           <span className="font-semibold text-gray-900 dark:text-white text-[13px]">JhinxPay</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button 
+          {/* <Button 
             variant="ghost" 
             size="icon" 
             className="relative hover:bg-gray-100/80 dark:hover:bg-gray-800/50 rounded-[10px]"
@@ -377,7 +377,7 @@ export const AdminSidebar = () => {
               <Bell className="w-[16px] h-[16px]" />
             </div>
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-500 rounded-full ring-2 ring-white dark:ring-[#1C1C1C]" />
-          </Button>
+          </Button> */}
           <Button
             variant="ghost"
             size="icon"
