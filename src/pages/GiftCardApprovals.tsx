@@ -1,50 +1,50 @@
-import { CreditCard, Clock, TrendingUp, CheckCircle } from "lucide-react";
-import { MetricCard } from "@/components/dashboard/MetricCard";
+import { CreditCard, Clock, CheckCircle, XCircle, TrendingUp } from "lucide-react";
 import { GiftCardQueue } from "@/components/giftcards/GiftCardQueue";
+
+const stats = [
+  { label: "Total Pending value", value: "$3,250", change: "23% vs yesterday", icon: CreditCard },
+  { label: "Pending", value: "28", change: "23% vs yesterday", icon: CreditCard },
+  { label: "Approved", value: "112", change: "4.3% today", icon: CheckCircle },
+  { label: "Rejected", value: "14", change: "23% this week", icon: XCircle },
+  { label: "Avg Review Time", value: "3m 42s", change: "23% this week", icon: Clock },
+];
 
 const GiftCardApprovals = () => {
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Gift Card Approvals</h1>
-        <p className="text-muted-foreground mt-1">Review and approve gift card submissions</p>
+      <div className="px-1">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Gift Card Queue</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-0.5 text-[12px]">
+          Review and verify submitted gift cards before approval or rejection.
+        </p>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Pending Today"
-          value="23"
-          icon={CreditCard}
-          description="Awaiting review"
-        />
-        <MetricCard
-          title="Avg Approval Time"
-          value="14 mins"
-          change="-3 mins"
-          changeType="positive"
-          icon={Clock}
-          description="vs last week"
-        />
-        <MetricCard
-          title="Approved Today"
-          value="47"
-          change="+12%"
-          changeType="positive"
-          icon={CheckCircle}
-        />
-        <MetricCard
-          title="Total Value"
-          value="$3,250"
-          change="+8%"
-          changeType="positive"
-          icon={TrendingUp}
-          description="Pending value"
-        />
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {stats.map(({ label, value, change, icon: Icon }) => (
+          <div
+            key={label}
+            className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] p-4 border border-gray-200/50 dark:border-gray-700/30 shadow-sm flex flex-col justify-between gap-3"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">{label}</p>
+              <div className="w-7 h-7 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] flex items-center justify-center flex-shrink-0">
+                <Icon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+              </div>
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-gray-900 dark:text-white leading-none">{value}</p>
+              <p className="text-[11px] text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" />
+                {change}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Queue */}
+      {/* Queue Table */}
       <GiftCardQueue />
     </div>
   );

@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import {
   ArrowLeft,
   User,
@@ -170,25 +171,88 @@ const RiskBadge = ({ risk }: { risk: string }) => {
   );
 };
 
+// Reusable user summary card shown inside dialogs
+const DialogUserSummary = () => (
+  <div className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px] p-3.5 space-y-3">
+    {/* User row */}
+    <div className="flex items-center gap-2.5">
+      <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-200/50 dark:ring-orange-500/30 flex-shrink-0">
+        <img
+          src={userData.profilePhoto}
+          alt={userData.name}
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{userData.name}</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{userData.email}</p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <KycBadge tier={userData.kycTier} />
+        <StatusBadge status={userData.status} />
+      </div>
+    </div>
+    {/* Transaction summary */}
+    <div className="space-y-1.5">
+      {[
+        { label: "Card:", value: userData.cardDetails.brand },
+        { label: "Card Code:", value: userData.cardDetails.cardCode },
+        { label: "Transaction ID:", value: "JPX-TRX-829503" },
+        { label: "Payout Amount:", value: userData.cardDetails.payoutAmount },
+      ].map(({ label, value }) => (
+        <div key={label} className="flex items-center justify-between">
+          <span className="text-[12px] text-gray-500 dark:text-gray-400">{label}</span>
+          <span className="text-[12px] font-semibold text-gray-900 dark:text-white font-mono">{value}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const UserDetail = () => {
   const { id } = useParams();
   const [newNote, setNewNote] = useState("");
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
+  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
 
+  // Request Info state
+  const [infoMessage, setInfoMessage] = useState("");
+  const [infoPush, setInfoPush] = useState(true);
+  const [infoEmail, setInfoEmail] = useState(false);
+
+  // Hold for Review state
+  const [holdReason, setHoldReason] = useState("");
+  const [holdNote, setHoldNote] = useState("");
+  const [holdPush, setHoldPush] = useState(true);
+  const [holdEmail, setHoldEmail] = useState(false);
+
   const handleApprove = () => {
-    // Handle approval logic and send email
     console.log("Approved with message:", emailMessage);
     setApproveDialogOpen(false);
   };
 
   const handleReject = () => {
-    // Handle rejection logic and send email
     console.log("Rejected with message:", emailMessage);
     setRejectDialogOpen(false);
+  };
+
+  const handleRequestInfo = () => {
+    console.log("Request info sent:", infoMessage);
+    setRequestInfoDialogOpen(false);
+    setInfoMessage("");
+  };
+
+  const handleHold = () => {
+    console.log("Held for review:", holdReason, holdNote);
+    setHoldDialogOpen(false);
+    setHoldReason("");
+    setHoldNote("");
   };
 
   const getRiskColor = (rating: number) => {
@@ -614,20 +678,177 @@ const UserDetail = () => {
 
             {/* Secondary Actions */}
             <div className="grid grid-cols-2 gap-3">
-              <Button 
-                variant="outline"
-                className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
-              >
-                <Info className="w-4 h-4 mr-2" />
-                Request Info
-              </Button>
-              <Button 
-                variant="outline"
-                className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
-              >
-                <Pause className="w-4 h-4 mr-2" />
-                Hold for Review
-              </Button>
+              {/* Request Info Dialog */}
+              <Dialog open={requestInfoDialogOpen} onOpenChange={setRequestInfoDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
+                  >
+                    <Info className="w-4 h-4 mr-2" />
+                    Request Info
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+                      Request more information
+                    </DialogTitle>
+                    <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
+                      You are about to request more info from the user
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-2">
+                    {/* User + transaction summary */}
+                    <DialogUserSummary />
+
+                    {/* Message field */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Message to user</Label>
+                      <Textarea
+                        value={infoMessage}
+                        onChange={(e) => setInfoMessage(e.target.value)}
+                        placeholder="Describe the information you need from the user..."
+                        className="min-h-[100px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[12px] resize-none focus-visible:ring-0 focus:border-orange-300 dark:focus:border-orange-500/30"
+                      />
+                    </div>
+
+                    {/* Notification toggles */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Push notification</span>
+                        <Switch
+                          checked={infoPush}
+                          onCheckedChange={setInfoPush}
+                          className="data-[state=checked]:bg-green-500 scale-90"
+                        />
+                      </div>
+                      <span className="text-gray-300 dark:text-gray-600">|</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Email</span>
+                        <Switch
+                          checked={infoEmail}
+                          onCheckedChange={setInfoEmail}
+                          className="data-[state=checked]:bg-green-500 scale-90"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      onClick={handleRequestInfo}
+                      className="w-full h-10 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/20 text-[13px]"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send message
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Hold for Review Dialog */}
+              <Dialog open={holdDialogOpen} onOpenChange={setHoldDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
+                  >
+                    <Pause className="w-4 h-4 mr-2" />
+                    Hold for Review
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+                      Hold for Review
+                    </DialogTitle>
+                    <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
+                      This transaction will be paused pending further review
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-2">
+                    {/* User + transaction summary */}
+                    <DialogUserSummary />
+
+                    {/* Hold reason selector */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Reason for hold</Label>
+                      <div className="relative">
+                        <select
+                          value={holdReason}
+                          onChange={(e) => setHoldReason(e.target.value)}
+                          className="w-full appearance-none h-9 pl-3 pr-8 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-gray-200/50 dark:border-gray-700/30 rounded-[10px] text-[12px] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-orange-300 dark:focus:border-orange-500/30 cursor-pointer"
+                        >
+                          <option value="">Select a reason...</option>
+                          <option value="suspicious_activity">Suspicious Activity</option>
+                          <option value="verify_identity">Verify Identity</option>
+                          <option value="card_validation">Card Validation Required</option>
+                          <option value="high_risk">High Risk Score</option>
+                          <option value="manual_review">Manual Review Needed</option>
+                          <option value="other">Other</option>
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Internal note */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                        Internal note <span className="text-gray-400 font-normal">(optional)</span>
+                      </Label>
+                      <Textarea
+                        value={holdNote}
+                        onChange={(e) => setHoldNote(e.target.value)}
+                        placeholder="Add context for other admins reviewing this hold..."
+                        className="min-h-[90px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[12px] resize-none focus-visible:ring-0 focus:border-orange-300 dark:focus:border-orange-500/30"
+                      />
+                    </div>
+
+                    {/* Notify user toggles */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">Notify user via</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-gray-600 dark:text-gray-400">Push</span>
+                        <Switch
+                          checked={holdPush}
+                          onCheckedChange={setHoldPush}
+                          className="data-[state=checked]:bg-green-500 scale-90"
+                        />
+                      </div>
+                      <span className="text-gray-300 dark:text-gray-600">|</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-gray-600 dark:text-gray-400">Email</span>
+                        <Switch
+                          checked={holdEmail}
+                          onCheckedChange={setHoldEmail}
+                          className="data-[state=checked]:bg-green-500 scale-90"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setHoldDialogOpen(false)}
+                      className="flex-1 h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleHold}
+                      disabled={!holdReason}
+                      className="flex-1 h-10 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold hover:from-orange-500 hover:to-orange-600 border-0 shadow-lg shadow-orange-500/20 text-[13px] disabled:opacity-50"
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
+                      Place on Hold
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>

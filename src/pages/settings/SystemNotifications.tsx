@@ -1,47 +1,22 @@
 import { useState } from "react";
-import { 
-  Send, 
-  Plus, 
-  Bell, 
-  Clock, 
-  Mail, 
-  Smartphone,
-  MessageSquare,
-  Users,
-  Calendar,
-  Trash2,
-  Edit2
+import {
+  Send, Plus, Bell, Clock, Mail, Smartphone,
+  MessageSquare, Users, Trash2, Edit2, MoreHorizontal, Check,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Notification {
@@ -56,432 +31,311 @@ interface Notification {
   scheduledFor?: string;
 }
 
-const initialNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Platform Maintenance",
-    message: "Scheduled maintenance on Jan 15, 2AM - 4AM WAT",
-    type: "maintenance",
-    recipients: "All Users",
-    channels: ["push", "email"],
-    status: "sent",
-    sentAt: "Jan 10, 2026",
-  },
-  {
-    id: "2",
-    title: "New Feature: Instant Crypto",
-    message: "Buy crypto instantly with your debit card!",
-    type: "announcement",
-    recipients: "Tier 1+",
-    channels: ["push"],
-    status: "sent",
-    sentAt: "Jan 8, 2026",
-  },
-  {
-    id: "3",
-    title: "Weekend Bonus Rates",
-    message: "Get 5% extra on all gift card trades this weekend!",
-    type: "promo",
-    recipients: "All Users",
-    channels: ["push", "email", "sms"],
-    status: "scheduled",
-    scheduledFor: "Jan 15, 2026 9:00 AM",
-  },
-  {
-    id: "4",
-    title: "Security Update",
-    message: "Important security improvements have been made",
-    type: "warning",
-    recipients: "All Users",
-    channels: ["push", "email"],
-    status: "draft",
-  },
+const initial: Notification[] = [
+  { id: "1", title: "Platform Maintenance", message: "Scheduled maintenance on Jan 15, 2AM - 4AM WAT", type: "maintenance", recipients: "All Users", channels: ["push", "email", "sms"], status: "scheduled", scheduledFor: "23 Jan 2026" },
+  { id: "2", title: "New Feature: Instant Crypto", message: "Buy crypto instantly with your debit card!", type: "announcement", recipients: "All Users", channels: ["push"], status: "sent", sentAt: "21 Jan 2026" },
+  { id: "3", title: "Weekend Bonus Rates", message: "Get 5% extra on all gift card trades this weekend!", type: "promo", recipients: "All Users", channels: ["email", "sms"], status: "sent", sentAt: "20 Jan 2026" },
+  { id: "4", title: "Security Update", message: "Important security improvements have been made", type: "warning", recipients: "All Users", channels: ["push", "email", "sms"], status: "scheduled", scheduledFor: "19 Jan 2026" },
 ];
 
-const typeLabels = {
-  announcement: "Announcement",
-  maintenance: "Maintenance",
-  warning: "Security Alert",
-  promo: "Promotion",
+const typeStyles: Record<string, string> = {
+  announcement: "border border-blue-400 text-blue-600 dark:text-blue-400 bg-transparent",
+  maintenance:   "border border-orange-400 text-orange-600 dark:text-orange-400 bg-transparent",
+  warning:       "border border-red-500 text-red-600 dark:text-red-400 bg-transparent",
+  promo:         "border border-green-500 text-green-600 dark:text-green-400 bg-transparent",
+};
+const typeLabels: Record<string, string> = {
+  announcement: "Announcement", maintenance: "Maintenance", warning: "Security Alert", promo: "Promotion",
+};
+const statusStyles: Record<string, string> = {
+  sent:      "border border-green-500 text-green-600 dark:text-green-400 bg-transparent",
+  scheduled: "border border-blue-400 text-blue-600 dark:text-blue-400 bg-transparent",
+  draft:     "border border-gray-400 text-gray-500 dark:text-gray-400 bg-transparent",
 };
 
-const typeBadgeVariants = {
-  announcement: "info" as const,
-  maintenance: "warning" as const,
-  warning: "error" as const,
-  promo: "success" as const,
+const ChannelIcon = ({ ch }: { ch: string }) => {
+  if (ch === "push")  return <MessageSquare className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />;
+  if (ch === "email") return <Mail className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />;
+  if (ch === "sms")   return <Smartphone className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />;
+  return null;
 };
 
 const SystemNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    message: "",
-    type: "announcement" as Notification["type"],
-    recipients: "all",
-    channels: { push: true, email: false, sms: false },
-    schedule: "now",
-    scheduledDate: "",
-    scheduledTime: "",
+  const [notifications, setNotifications] = useState<Notification[]>(initial);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Notification | null>(null);
+
+  // Form state
+  const [form, setForm] = useState({
+    title: "", type: "announcement", message: "",
+    allUsers: false, tier1: false, emailComplete: false,
+    push: false, email: false, sms: false,
+    schedule: false, date: "", time: "",
   });
 
-  const handleCreate = () => {
-    const channels = [];
-    if (formData.channels.push) channels.push("push");
-    if (formData.channels.email) channels.push("email");
-    if (formData.channels.sms) channels.push("sms");
+  const resetForm = () => setForm({ title: "", type: "announcement", message: "", allUsers: false, tier1: false, emailComplete: false, push: false, email: false, sms: false, schedule: false, date: "", time: "" });
 
-    const newNotification: Notification = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: formData.title,
-      message: formData.message,
-      type: formData.type,
-      recipients: formData.recipients === "all" ? "All Users" : formData.recipients === "tier1" ? "Tier 1+" : "Specific Users",
-      channels,
-      status: formData.schedule === "now" ? "sent" : "scheduled",
-      sentAt: formData.schedule === "now" ? new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined,
-      scheduledFor: formData.schedule === "later" ? `${formData.scheduledDate} ${formData.scheduledTime}` : undefined,
-    };
+  const openCreate = () => { resetForm(); setEditTarget(null); setCreateOpen(true); };
 
-    setNotifications(prev => [newNotification, ...prev]);
-    toast.success(formData.schedule === "now" ? "Notification sent!" : "Notification scheduled!");
-    setIsCreateDialogOpen(false);
-    setFormData({
-      title: "",
-      message: "",
-      type: "announcement",
-      recipients: "all",
-      channels: { push: true, email: false, sms: false },
-      schedule: "now",
-      scheduledDate: "",
-      scheduledTime: "",
+  const openEdit = (n: Notification) => {
+    setEditTarget(n);
+    setForm({
+      title: n.title, type: n.type, message: n.message,
+      allUsers: n.recipients === "All Users", tier1: n.recipients === "Tier 1+", emailComplete: false,
+      push: n.channels.includes("push"), email: n.channels.includes("email"), sms: n.channels.includes("sms"),
+      schedule: !!n.scheduledFor, date: "", time: "",
     });
+    setCreateOpen(true);
+  };
+
+  const handleSend = () => {
+    if (!form.title || !form.message) return;
+    const channels = [form.push && "push", form.email && "email", form.sms && "sms"].filter(Boolean) as string[];
+    const recipients = form.allUsers ? "All Users" : form.tier1 ? "Tier 1+" : "All Users";
+
+    if (editTarget) {
+      setNotifications((prev) => prev.map((n) => n.id === editTarget.id ? { ...n, title: form.title, message: form.message, type: form.type as any, recipients, channels, status: form.schedule ? "scheduled" : "sent", scheduledFor: form.schedule ? `${form.date} ${form.time}` : undefined, sentAt: !form.schedule ? new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : undefined } : n));
+      toast.success("Notification updated");
+    } else {
+      const newN: Notification = {
+        id: String(Date.now()), title: form.title, message: form.message,
+        type: form.type as any, recipients, channels,
+        status: form.schedule ? "scheduled" : "sent",
+        sentAt: !form.schedule ? new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : undefined,
+        scheduledFor: form.schedule ? `${form.date} ${form.time}` : undefined,
+      };
+      setNotifications((prev) => [newN, ...prev]);
+      toast.success(form.schedule ? "Notification scheduled!" : "Notification sent!");
+    }
+    setCreateOpen(false);
+    setEditTarget(null);
   };
 
   const handleDelete = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
     toast.success("Notification deleted");
   };
 
+  const stats = [
+    { label: "Total Notifications", value: notifications.length,                               icon: Bell    },
+    { label: "Scheduled Notifications", value: notifications.filter(n => n.status === "scheduled").length, icon: Clock   },
+    { label: "Sent Notifications", value: notifications.filter(n => n.status === "sent").length,           icon: Send    },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">System Notifications</h1>
-          <p className="text-muted-foreground mt-1">Send announcements and alerts to users</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">System Notification</h1>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">Send announcements and alerts to users</p>
         </div>
-        <Button variant="accent" className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Create Notification
-        </Button>
+        <button onClick={openCreate} className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20">
+          <Plus className="w-3.5 h-3.5" /> Create Notification
+        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="card-glow bg-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Bell className="w-5 h-5 text-orange-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {stats.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] p-4 border border-gray-200/50 dark:border-gray-700/30 shadow-sm flex flex-col gap-3">
+            <div className="flex items-start justify-between">
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">{label}</p>
+              <div className="w-7 h-7 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] flex items-center justify-center">
+                <Icon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{notifications.length}</p>
-              <p className="text-sm text-muted-foreground">Total</p>
-            </div>
+            <p className="text-[22px] font-bold text-gray-900 dark:text-white leading-none">{value}</p>
           </div>
-        </div>
-        <div className="card-glow bg-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-              <Send className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {notifications.filter(n => n.status === "sent").length}
-              </p>
-              <p className="text-sm text-muted-foreground">Sent</p>
-            </div>
-          </div>
-        </div>
-        <div className="card-glow bg-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-info" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {notifications.filter(n => n.status === "scheduled").length}
-              </p>
-              <p className="text-sm text-muted-foreground">Scheduled</p>
-            </div>
-          </div>
-        </div>
-        <div className="card-glow bg-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-muted/10 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {notifications.filter(n => n.status === "draft").length}
-              </p>
-              <p className="text-sm text-muted-foreground">Drafts</p>
-            </div>
-          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-[#F5F5F5]/60 dark:bg-[#2D2B2B]/60">
+                {["Notification", "Type", "Recipients", "Channels", "Status", "Date", "Actions"].map((h) => (
+                  <th key={h} className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100/80 dark:divide-gray-700/20">
+              {notifications.map((n) => (
+                <tr key={n.id} className="hover:bg-[#F5F5F5]/40 dark:hover:bg-[#2D2B2B]/40 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{n.title}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-500 truncate max-w-[180px]">{n.message}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge className={cn("rounded-full text-[10px] font-semibold px-2.5 py-0.5", typeStyles[n.type])}>{typeLabels[n.type]}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-400">
+                      <Users className="w-3 h-3" /> {n.recipients}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      {n.channels.map((ch) => <ChannelIcon key={ch} ch={ch} />)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge className={cn("rounded-full text-[10px] font-semibold px-2.5 py-0.5", statusStyles[n.status])}>
+                      {n.status.charAt(0).toUpperCase() + n.status.slice(1)}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {n.sentAt || n.scheduledFor || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-colors ml-auto">
+                          <MoreHorizontal className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36 bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[14px] p-1.5 shadow-xl">
+                        <DropdownMenuItem onClick={() => openEdit(n)} className="rounded-[10px] text-[12px] cursor-pointer gap-2 px-2 py-2 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B]">
+                          <Edit2 className="w-3.5 h-3.5 text-gray-500" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-gray-100 dark:bg-gray-800 my-1" />
+                        <DropdownMenuItem onClick={() => handleDelete(n.id)} className="rounded-[10px] text-[12px] cursor-pointer gap-2 px-2 py-2 text-red-600 dark:text-red-400 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B]">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Notifications Table */}
-      <div className="card-glow bg-card rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-surface-1 border-border hover:bg-surface-1">
-              <TableHead className="text-muted-foreground">Notification</TableHead>
-              <TableHead className="text-muted-foreground">Type</TableHead>
-              <TableHead className="text-muted-foreground">Recipients</TableHead>
-              <TableHead className="text-muted-foreground">Channels</TableHead>
-              <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground">Date</TableHead>
-              <TableHead className="text-right text-muted-foreground">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {notifications.map((notification) => (
-              <TableRow key={notification.id} className="border-border">
-                <TableCell>
-                  <div>
-                    <p className="font-medium text-foreground">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground truncate max-w-xs">{notification.message}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={typeBadgeVariants[notification.type]}>
-                    {typeLabels[notification.type]}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Users className="w-3 h-3" />
-                    {notification.recipients}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {notification.channels.includes("push") && (
-                      <Smartphone className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    {notification.channels.includes("email") && (
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    {notification.channels.includes("sms") && (
-                      <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    variant={
-                      notification.status === "sent" ? "success" : 
-                      notification.status === "scheduled" ? "info" : 
-                      "secondary"
-                    }
-                  >
-                    {notification.status.charAt(0).toUpperCase() + notification.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {notification.sentAt || notification.scheduledFor || "—"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon">
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(notification.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Create Notification Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+      {/* ── Create / Edit Dialog ── */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle>Send System Notification</DialogTitle>
-            <DialogDescription>
-              Create and send a notification to users.
-            </DialogDescription>
+            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+              {editTarget ? "Edit Notification" : "Create Notification"}
+            </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label>Notification Type</Label>
-              <Select 
-                value={formData.type} 
-                onValueChange={(value: Notification["type"]) => setFormData({ ...formData, type: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="announcement">Announcement</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="warning">Security Alert</SelectItem>
-                  <SelectItem value="promo">Promotion</SelectItem>
-                </SelectContent>
-              </Select>
+
+          <div className="space-y-3 py-1 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
+            {/* Name */}
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Notification Name</Label>
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Input Notification Name" className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
             </div>
 
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Enter notification title"
-                className="bg-surface-1"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea
-                value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                placeholder="Enter notification message..."
-                className="bg-surface-1 min-h-24"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Recipients</Label>
-              <RadioGroup 
-                value={formData.recipients} 
-                onValueChange={(value) => setFormData({ ...formData, recipients: value })}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="all" id="all" />
-                  <Label htmlFor="all" className="font-normal">All users</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="tier1" id="tier1" />
-                  <Label htmlFor="tier1" className="font-normal">Tier 1+ only</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="specific" id="specific" />
-                  <Label htmlFor="specific" className="font-normal">Specific users (enter emails)</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Delivery Channels</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="push" 
-                    checked={formData.channels.push}
-                    onCheckedChange={(checked) => 
-                      setFormData({ ...formData, channels: { ...formData.channels, push: !!checked }})
-                    }
-                  />
-                  <Label htmlFor="push" className="font-normal flex items-center gap-2">
-                    <Smartphone className="w-4 h-4" /> Push notification
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="email" 
-                    checked={formData.channels.email}
-                    onCheckedChange={(checked) => 
-                      setFormData({ ...formData, channels: { ...formData.channels, email: !!checked }})
-                    }
-                  />
-                  <Label htmlFor="email" className="font-normal flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> Email
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="sms" 
-                    checked={formData.channels.sms}
-                    onCheckedChange={(checked) => 
-                      setFormData({ ...formData, channels: { ...formData.channels, sms: !!checked }})
-                    }
-                  />
-                  <Label htmlFor="sms" className="font-normal flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" /> SMS
-                  </Label>
-                </div>
+            {/* Type */}
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Notification Type</Label>
+              <div className="relative">
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full appearance-none h-10 pl-3 pr-8 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-orange-300 cursor-pointer">
+                  <option value="">Select Notification Type</option>
+                  <option value="announcement">Announcement</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="warning">Security Alert</option>
+                  <option value="promo">Promotion</option>
+                </select>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Schedule</Label>
-              <RadioGroup 
-                value={formData.schedule} 
-                onValueChange={(value) => setFormData({ ...formData, schedule: value })}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="now" id="now" />
-                  <Label htmlFor="now" className="font-normal">Send immediately</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="later" id="later" />
-                  <Label htmlFor="later" className="font-normal">Schedule for later</Label>
-                </div>
-              </RadioGroup>
-              
-              {formData.schedule === "later" && (
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    type="date"
-                    value={formData.scheduledDate}
-                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                    className="bg-surface-1"
-                  />
-                  <Input
-                    type="time"
-                    value={formData.scheduledTime}
-                    onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
-                    className="bg-surface-1"
-                  />
-                </div>
-              )}
+            {/* Message */}
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Notification Message</Label>
+              <Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Input Notification Messages" className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px] min-h-[80px] resize-none" />
             </div>
+
+            {/* Recipients */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Recipients</Label>
+              {[
+                { key: "allUsers", label: "All Users" },
+                { key: "tier1",    label: "Tier 1+" },
+                { key: "emailComplete", label: "Email when complete" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2.5">
+                  <Checkbox
+                    id={key}
+                    checked={form[key as keyof typeof form] as boolean}
+                    onCheckedChange={(v) => setForm({ ...form, [key]: !!v })}
+                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]"
+                  />
+                  <Label htmlFor={key} className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">{label}</Label>
+                </div>
+              ))}
+            </div>
+
+            {/* Channels */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Delivery Channels</Label>
+              {[
+                { key: "push",  label: "Push Notification" },
+                { key: "email", label: "Email" },
+                { key: "sms",   label: "SMS" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2.5">
+                  <Checkbox
+                    id={`ch-${key}`}
+                    checked={form[key as keyof typeof form] as boolean}
+                    onCheckedChange={(v) => setForm({ ...form, [key]: !!v })}
+                    className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]"
+                  />
+                  <Label htmlFor={`ch-${key}`} className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">{label}</Label>
+                </div>
+              ))}
+            </div>
+
+            {/* Schedule toggle */}
+            <div className="flex items-center gap-2.5">
+              <Checkbox
+                id="schedule"
+                checked={form.schedule}
+                onCheckedChange={(v) => setForm({ ...form, schedule: !!v })}
+                className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]"
+              />
+              <Label htmlFor="schedule" className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">Schedule Notification</Label>
+            </div>
+
+            {form.schedule && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Date</Label>
+                  <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[10px] text-[12px]" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Time</Label>
+                  <Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[10px] text-[12px]" />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="secondary" onClick={() => toast.success("Draft saved")}>
-              Save Draft
-            </Button>
-            <Button 
-              variant="accent" 
-              onClick={handleCreate} 
-              disabled={!formData.title || !formData.message}
-              className="gap-2"
+            <button
+              disabled={!form.title || !form.message}
+              onClick={handleSend}
+              className="w-full py-2.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              <Send className="w-4 h-4" />
-              {formData.schedule === "now" ? "Send" : "Schedule"}
-            </Button>
+              <Send className="w-3.5 h-3.5" />
+              {editTarget ? "Update Notification" : form.schedule ? "Create Notification" : "Send Notification"}
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <style>{`
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+        .custom-scrollbar:hover { scrollbar-color: rgba(156,163,175,0.3) transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.3); }
+      `}</style>
     </div>
   );
 };

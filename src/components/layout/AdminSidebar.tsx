@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
+  // Users,
   ArrowLeftRight,
   Settings,
-  FileText,
-  Shield,
+  // FileText,
+  // Shield,
   UserCog,
   ChevronDown,
   ChevronRight,
@@ -210,11 +210,8 @@ export const AdminSidebar = () => {
     {
       to: "/settings",
       icon: Settings,
-      label: "Settings",
+      label: "System Settings",
       children: [
-        { to: "/settings/rates", label: "Gift Card Rates" },
-        { to: "/settings/limits", label: "Transaction Limits" },
-        { to: "/settings/games", label: "Supported Games" },
         { to: "/settings/notifications", label: "System Notifications" },
         { to: "/settings/features", label: "Feature Controls" },
       ],

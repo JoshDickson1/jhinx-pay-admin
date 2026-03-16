@@ -14,7 +14,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       </div>
       <div className="lg:ml-64">
         <AdminHeader />
-        <main className="p-6 lg:p-7 mt-16 lg:mt-0">
+        <main className="p-6 lg:pl-1 mt-16 lg:mt-0">
           {children}
         </main>
       </div>

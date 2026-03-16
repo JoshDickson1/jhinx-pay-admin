@@ -1,40 +1,17 @@
 import { useState } from "react";
-import { 
-  Power, 
-  AlertTriangle,
-  Bitcoin,
-  CreditCard,
-  Gamepad2,
-  ArrowUpDown,
-  Send,
-  ArrowDownToLine,
-  ShoppingCart,
-  Store,
-  Wrench,
-  Clock,
-  CheckCircle,
-  XCircle
+import {
+  Power, AlertTriangle, Bitcoin, CreditCard, Gamepad2,
+  ArrowUpDown, Send, ArrowDownToLine, ShoppingCart, Store,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Feature {
@@ -42,351 +19,252 @@ interface Feature {
   name: string;
   description: string;
   icon: React.ElementType;
-  status: "active" | "paused" | "maintenance";
+  status: "active" | "paused";
   category: "crypto" | "giftcard" | "games";
-  lastChanged?: string;
   pauseReason?: string;
   pausedUntil?: string;
 }
 
-const initialFeatures: Feature[] = [
-  // Crypto features
-  { id: "crypto-buy", name: "Buy Crypto", description: "Allow users to purchase cryptocurrency", icon: ShoppingCart, status: "active", category: "crypto" },
-  { id: "crypto-sell", name: "Sell Crypto", description: "Allow users to sell cryptocurrency", icon: Store, status: "active", category: "crypto" },
-  { id: "crypto-swap", name: "Swap Crypto", description: "Allow crypto-to-crypto swaps", icon: ArrowUpDown, status: "active", category: "crypto" },
-  { id: "crypto-send", name: "Send Crypto", description: "Allow external crypto transfers", icon: Send, status: "paused", category: "crypto", pauseReason: "Security review in progress", lastChanged: "2 hours ago" },
-  { id: "crypto-receive", name: "Receive Crypto", description: "Allow crypto deposits", icon: ArrowDownToLine, status: "active", category: "crypto" },
-  
-  // Gift card features
-  { id: "giftcard-buy", name: "Buy Gift Cards", description: "Allow users to purchase gift cards", icon: ShoppingCart, status: "active", category: "giftcard" },
-  { id: "giftcard-sell", name: "Sell Gift Cards", description: "Allow users to sell gift cards", icon: Store, status: "active", category: "giftcard" },
-  
-  // Game features
-  { id: "games-topup", name: "Game Top-ups", description: "Allow in-game currency purchases", icon: Gamepad2, status: "maintenance", category: "games", pauseReason: "API provider maintenance", pausedUntil: "Jan 15, 2026 6:00 AM" },
+const seedFeatures: Feature[] = [
+  { id: "crypto-buy",     name: "Buy Crypto",      description: "Allow users to purchase cryptocurrency", icon: ShoppingCart,    status: "active", category: "crypto"    },
+  { id: "crypto-sell",    name: "Sell Crypto",      description: "Allow users to sell cryptocurrency",    icon: Store,           status: "active", category: "crypto"    },
+  { id: "crypto-swap",    name: "Swap Crypto",      description: "Allow crypto-to-crypto swaps",          icon: ArrowUpDown,     status: "paused", category: "crypto"    },
+  { id: "crypto-send",    name: "Send Crypto",      description: "Allow external crypto transfers",       icon: Send,            status: "active", category: "crypto"    },
+  { id: "crypto-receive", name: "Receive Crypto",   description: "Allow crypto deposits",                 icon: ArrowDownToLine, status: "active", category: "crypto"    },
+  { id: "gc-buy",         name: "Buy Gift Cards",   description: "Allow users to purchase gift cards",    icon: ShoppingCart,    status: "active", category: "giftcard"  },
+  { id: "gc-sell",        name: "Sell Gift Cards",  description: "Allow users to sell gift cards",        icon: Store,           status: "active", category: "giftcard"  },
+  { id: "games-topup",    name: "Game Top-ups",     description: "Allow in-game currency purchases",      icon: Gamepad2,        status: "active", category: "games"     },
 ];
 
-const categoryLabels = {
-  crypto: "Cryptocurrency",
-  giftcard: "Gift Cards",
-  games: "Gaming",
-};
+type Category = "crypto" | "giftcard" | "games";
 
-const categoryIcons = {
-  crypto: Bitcoin,
-  giftcard: CreditCard,
-  games: Gamepad2,
+const categoryMeta: Record<Category, { label: string; Icon: React.ElementType }> = {
+  crypto:   { label: "Cryptocurrency", Icon: Bitcoin    },
+  giftcard: { label: "Gift Cards",     Icon: CreditCard },
+  games:    { label: "Gaming",         Icon: Gamepad2   },
 };
 
 const FeatureControls = () => {
-  const [features, setFeatures] = useState<Feature[]>(initialFeatures);
-  const [pauseDialog, setPauseDialog] = useState<{
-    feature: Feature | null;
-    isOpen: boolean;
-  }>({ feature: null, isOpen: false });
-  const [pauseForm, setPauseForm] = useState({
-    reason: "",
-    duration: "",
-    notifyUsers: true,
-  });
-  const [categoryPauseDialog, setCategoryPauseDialog] = useState<{
-    category: "crypto" | "giftcard" | "games" | null;
-    isOpen: boolean;
-  }>({ category: null, isOpen: false });
+  const [features, setFeatures] = useState<Feature[]>(seedFeatures);
+  const [activeTab, setActiveTab] = useState<Category>("crypto");
 
-  const getStatusBadge = (status: Feature["status"]) => {
-    switch (status) {
-      case "active":
-        return <Badge variant="success" className="gap-1"><CheckCircle className="w-3 h-3" />Active</Badge>;
-      case "paused":
-        return <Badge variant="warning" className="gap-1"><XCircle className="w-3 h-3" />Paused</Badge>;
-      case "maintenance":
-        return <Badge variant="info" className="gap-1"><Wrench className="w-3 h-3" />Maintenance</Badge>;
-    }
-  };
+  // Pause feature dialog
+  const [pauseFeature, setPauseFeature] = useState<Feature | null>(null);
+  const [pauseReason, setPauseReason] = useState("");
+  const [pauseUntil, setPauseUntil] = useState("");
+  const [pauseNotify, setPauseNotify] = useState(true);
 
-  const handleToggleFeature = (feature: Feature) => {
-    if (feature.status === "active") {
-      setPauseDialog({ feature, isOpen: true });
+  // Pause all dialog
+  const [pauseAllCat, setPauseAllCat] = useState<Category | null>(null);
+  const [pauseAllReason, setPauseAllReason] = useState("");
+  const [pauseAllNotify, setPauseAllNotify] = useState(true);
+
+  const catFeatures = features.filter((f) => f.category === activeTab);
+  const activeCount = catFeatures.filter((f) => f.status === "active").length;
+  const allPaused = activeCount === 0;
+
+  const doToggle = (f: Feature) => {
+    if (f.status === "paused") {
+      setFeatures((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "active", pauseReason: undefined, pausedUntil: undefined } : x));
+      toast.success(`${f.name} resumed`);
     } else {
-      // Resume the feature
-      setFeatures(prev => prev.map(f => 
-        f.id === feature.id 
-          ? { ...f, status: "active", pauseReason: undefined, pausedUntil: undefined, lastChanged: "Just now" }
-          : f
-      ));
-      toast.success(`${feature.name} has been resumed`);
+      setPauseFeature(f);
+      setPauseReason(""); setPauseUntil(""); setPauseNotify(true);
     }
   };
 
-  const handlePauseConfirm = () => {
-    if (!pauseDialog.feature) return;
-    
-    setFeatures(prev => prev.map(f => 
-      f.id === pauseDialog.feature!.id 
-        ? { 
-            ...f, 
-            status: "paused" as const, 
-            pauseReason: pauseForm.reason, 
-            pausedUntil: pauseForm.duration || undefined,
-            lastChanged: "Just now"
-          }
-        : f
-    ));
-    
-    toast.success(`${pauseDialog.feature.name} has been paused`);
-    setPauseDialog({ feature: null, isOpen: false });
-    setPauseForm({ reason: "", duration: "", notifyUsers: true });
+  const confirmPause = () => {
+    if (!pauseFeature) return;
+    setFeatures((prev) => prev.map((x) => x.id === pauseFeature.id ? { ...x, status: "paused", pauseReason: pauseReason || "Manually paused", pausedUntil: pauseUntil || undefined } : x));
+    toast.success(`${pauseFeature.name} paused`);
+    setPauseFeature(null);
   };
 
-  const handlePauseCategory = (category: "crypto" | "giftcard" | "games") => {
-    const categoryFeatures = features.filter(f => f.category === category);
-    const allPaused = categoryFeatures.every(f => f.status !== "active");
-    
+  const doPauseAll = () => {
     if (allPaused) {
-      // Resume all
-      setFeatures(prev => prev.map(f => 
-        f.category === category 
-          ? { ...f, status: "active", pauseReason: undefined, pausedUntil: undefined, lastChanged: "Just now" }
-          : f
-      ));
-      toast.success(`All ${categoryLabels[category]} features have been resumed`);
+      setFeatures((prev) => prev.map((x) => x.category === activeTab ? { ...x, status: "active", pauseReason: undefined, pausedUntil: undefined } : x));
+      toast.success(`All ${categoryMeta[activeTab].label} features resumed`);
     } else {
-      setCategoryPauseDialog({ category, isOpen: true });
+      setPauseAllCat(activeTab);
+      setPauseAllReason(""); setPauseAllNotify(true);
     }
   };
 
-  const handleCategoryPauseConfirm = () => {
-    if (!categoryPauseDialog.category) return;
-    
-    setFeatures(prev => prev.map(f => 
-      f.category === categoryPauseDialog.category 
-        ? { 
-            ...f, 
-            status: "paused" as const, 
-            pauseReason: pauseForm.reason || "Category-wide pause", 
-            lastChanged: "Just now"
-          }
-        : f
-    ));
-    
-    toast.success(`All ${categoryLabels[categoryPauseDialog.category]} features have been paused`);
-    setCategoryPauseDialog({ category: null, isOpen: false });
-    setPauseForm({ reason: "", duration: "", notifyUsers: true });
-  };
-
-  const groupedFeatures = {
-    crypto: features.filter(f => f.category === "crypto"),
-    giftcard: features.filter(f => f.category === "giftcard"),
-    games: features.filter(f => f.category === "games"),
-  };
-
-  const getCategoryStatus = (category: "crypto" | "giftcard" | "games") => {
-    const categoryFeatures = groupedFeatures[category];
-    const activeCount = categoryFeatures.filter(f => f.status === "active").length;
-    const totalCount = categoryFeatures.length;
-    
-    if (activeCount === totalCount) return "all-active";
-    if (activeCount === 0) return "all-paused";
-    return "partial";
+  const confirmPauseAll = () => {
+    if (!pauseAllCat) return;
+    setFeatures((prev) => prev.map((x) => x.category === pauseAllCat ? { ...x, status: "paused", pauseReason: pauseAllReason || "Category-wide pause" } : x));
+    toast.success(`All ${categoryMeta[pauseAllCat].label} features paused`);
+    setPauseAllCat(null);
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Feature Controls</h1>
-          <p className="text-muted-foreground mt-1">Pause or enable platform features for maintenance</p>
+    <div className="space-y-3 animate-fade-in">
+
+      {/* Header */}
+      <div>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Feature Control</h1>
+        <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">Pause or enable platform features for maintenance</p>
+      </div>
+
+      {/* Tab pills */}
+      <div className="flex items-center gap-1 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-full border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-1 w-fit">
+        {(["crypto", "giftcard", "games"] as Category[]).map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveTab(cat)}
+            className={cn(
+              "px-4 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200 whitespace-nowrap",
+              activeTab === cat
+                ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-md shadow-orange-500/20"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            )}
+          >
+            {categoryMeta[cat].label}
+          </button>
+        ))}
+      </div>
+
+      {/* Category card */}
+      <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
+
+        {/* Card header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/80 dark:border-gray-700/20">
+          <div>
+            <p className="text-[14px] font-bold text-gray-900 dark:text-white">{categoryMeta[activeTab].label}</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+              {activeCount} of {catFeatures.length} feature{catFeatures.length !== 1 ? "s" : ""} Active
+            </p>
+          </div>
+          <button
+            onClick={doPauseAll}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-semibold transition-all shadow-sm",
+              allPaused
+                ? "bg-gradient-to-r from-green-500 to-green-600 text-white shadow-green-500/20"
+                : "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20"
+            )}
+          >
+            <Power className="w-3.5 h-3.5" />
+            {allPaused ? "Resume All" : "Pause All"}
+          </button>
+        </div>
+
+        {/* Features list */}
+        <div className="divide-y divide-gray-100/80 dark:divide-gray-700/20">
+          {catFeatures.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.id} className="flex items-center justify-between px-5 py-4 hover:bg-[#F5F5F5]/30 dark:hover:bg-[#2D2B2B]/30 transition-colors">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{f.name}</span>
+                      <Badge className={cn("rounded-full text-[10px] font-semibold px-2.5 py-0.5 border bg-transparent",
+                        f.status === "active"
+                          ? "border-green-500 text-green-600 dark:text-green-400"
+                          : "border-orange-400 text-orange-600 dark:text-orange-400"
+                      )}>
+                        {f.status === "active" ? "Active" : "Paused"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{f.description}</p>
+                    {f.pauseReason && (
+                      <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1">
+                        Reason: {f.pauseReason}{f.pausedUntil && ` · Until: ${f.pausedUntil}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Switch
+                  checked={f.status === "active"}
+                  onCheckedChange={() => doToggle(f)}
+                  className="data-[state=checked]:bg-green-500 ml-4"
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Warning Banner */}
-      <Alert className="border-warning/50 bg-warning/10">
-        <AlertTriangle className="h-4 w-4 text-warning" />
-        <AlertTitle className="text-warning">Caution</AlertTitle>
-        <AlertDescription className="text-muted-foreground">
-          Pausing features will immediately affect all users. Consider sending a system notification before disabling critical features.
-        </AlertDescription>
-      </Alert>
-
-      {/* Feature Categories */}
-      <div className="space-y-6">
-        {(["crypto", "giftcard", "games"] as const).map((category) => {
-          const CategoryIcon = categoryIcons[category];
-          const categoryStatus = getCategoryStatus(category);
-          
-          return (
-            <Card key={category} className="bg-card border-border">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                      <CategoryIcon className="w-5 h-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{categoryLabels[category]}</CardTitle>
-                      <CardDescription>
-                        {groupedFeatures[category].filter(f => f.status === "active").length} of {groupedFeatures[category].length} features active
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Button 
-                    variant={categoryStatus === "all-paused" ? "accent" : "destructive"}
-                    size="sm"
-                    onClick={() => handlePauseCategory(category)}
-                    className="gap-2"
-                  >
-                    <Power className="w-4 h-4" />
-                    {categoryStatus === "all-paused" ? "Resume All" : "Pause All"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {groupedFeatures[category].map((feature) => (
-                    <div 
-                      key={feature.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                        feature.status === "active" 
-                          ? "bg-surface-1 border-border" 
-                          : "bg-warning/5 border-warning/30"
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          feature.status === "active" ? "bg-success/10" : "bg-warning/10"
-                        }`}>
-                          <feature.icon className={`w-5 h-5 ${
-                            feature.status === "active" ? "text-success" : "text-warning"
-                          }`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-foreground">{feature.name}</p>
-                            {getStatusBadge(feature.status)}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{feature.description}</p>
-                          {feature.pauseReason && (
-                            <p className="text-xs text-warning mt-1">
-                              Reason: {feature.pauseReason}
-                              {feature.pausedUntil && ` • Until: ${feature.pausedUntil}`}
-                            </p>
-                          )}
-                          {feature.lastChanged && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Last changed: {feature.lastChanged}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <Switch 
-                        checked={feature.status === "active"}
-                        onCheckedChange={() => handleToggleFeature(feature)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Pause Feature Dialog */}
-      <Dialog open={pauseDialog.isOpen} onOpenChange={(open) => setPauseDialog({ ...pauseDialog, isOpen: open })}>
-        <DialogContent>
+      {/* ── Pause Feature Dialog ── */}
+      <Dialog open={!!pauseFeature} onOpenChange={() => setPauseFeature(null)}>
+        <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              Pause {pauseDialog.feature?.name}
-            </DialogTitle>
-            <DialogDescription>
-              This will immediately disable this feature for all users.
-            </DialogDescription>
+            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">Pause Feature</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Reason for pausing</Label>
-              <Textarea
-                value={pauseForm.reason}
-                onChange={(e) => setPauseForm({ ...pauseForm, reason: e.target.value })}
-                placeholder="e.g., Scheduled maintenance, Security review, API issues..."
-                className="bg-surface-1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Expected resume time (optional)</Label>
+          <div className="space-y-3 py-1">
+            <Input
+              value={pauseReason}
+              onChange={(e) => setPauseReason(e.target.value)}
+              placeholder="Reason for pausing"
+              className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]"
+            />
+            <div className="relative">
               <Input
                 type="datetime-local"
-                value={pauseForm.duration}
-                onChange={(e) => setPauseForm({ ...pauseForm, duration: e.target.value })}
-                className="bg-surface-1"
+                value={pauseUntil}
+                onChange={(e) => setPauseUntil(e.target.value)}
+                placeholder="Expected Resume Time"
+                className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]"
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-surface-1">
-              <div>
-                <Label>Notify users</Label>
-                <p className="text-xs text-muted-foreground">Send push notification to affected users</p>
-              </div>
-              <Switch 
-                checked={pauseForm.notifyUsers}
-                onCheckedChange={(checked) => setPauseForm({ ...pauseForm, notifyUsers: checked })}
+            <div className="flex items-center gap-2.5">
+              <Checkbox
+                id="notify"
+                checked={pauseNotify}
+                onCheckedChange={(v) => setPauseNotify(!!v)}
+                className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]"
               />
+              <Label htmlFor="notify" className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">Notify Users</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPauseDialog({ feature: null, isOpen: false })}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handlePauseConfirm} className="gap-2">
-              <Power className="w-4 h-4" />
-              Pause Feature
-            </Button>
+            <button
+              onClick={confirmPause}
+              className="w-full py-2.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
+            >
+              Pause Features
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Pause Category Dialog */}
-      <Dialog open={categoryPauseDialog.isOpen} onOpenChange={(open) => setCategoryPauseDialog({ ...categoryPauseDialog, isOpen: open })}>
-        <DialogContent>
+      {/* ── Pause All Dialog ── */}
+      <Dialog open={!!pauseAllCat} onOpenChange={() => setPauseAllCat(null)}>
+        <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              Pause All {categoryPauseDialog.category && categoryLabels[categoryPauseDialog.category]} Features
+            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+              Pause All {pauseAllCat ? categoryMeta[pauseAllCat].label : ""} Features
             </DialogTitle>
-            <DialogDescription>
-              This will immediately disable all {categoryPauseDialog.category && categoryLabels[categoryPauseDialog.category].toLowerCase()} features for all users.
-            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Reason for pausing</Label>
-              <Textarea
-                value={pauseForm.reason}
-                onChange={(e) => setPauseForm({ ...pauseForm, reason: e.target.value })}
-                placeholder="e.g., Scheduled maintenance, Provider issues..."
-                className="bg-surface-1"
-              />
+          <div className="space-y-3 py-1">
+            <div className="flex items-start gap-2.5 px-3 py-2.5 bg-orange-50/60 dark:bg-orange-500/8 rounded-[12px] border border-orange-200/50 dark:border-orange-500/20">
+              <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-orange-700 dark:text-orange-400">
+                This will immediately disable all {pauseAllCat ? categoryMeta[pauseAllCat].label.toLowerCase() : ""} features for all users.
+              </p>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-surface-1">
-              <div>
-                <Label>Notify users</Label>
-                <p className="text-xs text-muted-foreground">Send push notification to all users</p>
-              </div>
-              <Switch 
-                checked={pauseForm.notifyUsers}
-                onCheckedChange={(checked) => setPauseForm({ ...pauseForm, notifyUsers: checked })}
+            <Input
+              value={pauseAllReason}
+              onChange={(e) => setPauseAllReason(e.target.value)}
+              placeholder="Reason for pausing"
+              className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]"
+            />
+            <div className="flex items-center gap-2.5">
+              <Checkbox
+                id="notify-all"
+                checked={pauseAllNotify}
+                onCheckedChange={(v) => setPauseAllNotify(!!v)}
+                className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]"
               />
+              <Label htmlFor="notify-all" className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">Notify Users</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryPauseDialog({ category: null, isOpen: false })}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleCategoryPauseConfirm} className="gap-2">
-              <Power className="w-4 h-4" />
+          <DialogFooter className="gap-2">
+            <button onClick={() => setPauseAllCat(null)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">Cancel</button>
+            <button onClick={confirmPauseAll} className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20">
               Pause All
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
