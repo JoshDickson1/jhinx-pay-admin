@@ -221,11 +221,11 @@ export const AdminSidebar = () => {
       icon: UserCog,
       label: "Admin Profiles",
     },
-    {
-      to: "/help-center",
-      icon: HelpCircle,
-      label: "Help Center",
-    },
+    // {
+    //   to: "/help-center",
+    //   icon: HelpCircle,
+    //   label: "Help Center",
+    // },
   ];
   
   const SidebarContent = () => (

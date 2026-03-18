@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sun, Moon, Monitor, ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@/hooks/use-theme";
+import { toast } from "sonner";
+import api from "@/api/axiosInstance";
 
 type Theme = "light" | "dark" | "system";
 
-const notificationSettings = [
+const notificationKeys = [
   { key: "transactions", label: "New Transactions", description: "Keep your account safe and secure." },
   { key: "kyc", label: "KYC Updates", description: "New submissions and status changes" },
   { key: "support", label: "Support Tickets", description: "New tickets and replies" },
@@ -28,13 +28,44 @@ const themeOptions: { id: Theme; label: string; icon: React.ElementType }[] = [
 ];
 
 export const PreferencesTab = () => {
-  const [notifications, setNotifications] = useState<Record<string, boolean>>({
-    transactions: true, kyc: true, support: true, system: true, security: true,
-  });
-  const [theme, setTheme] = useState<Theme>("dark");
+  const { theme, setTheme } = useTheme();
+  const qc = useQueryClient();
+
   const [currency, setCurrency] = useState("Nigeria Naira (₦)");
   const [rowsPerPage, setRowsPerPage] = useState("25 Rows");
   const [saveOpen, setSaveOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Record<string, boolean>>({
+    transactions: true, kyc: true, support: true, system: true, security: true,
+  });
+
+  const { data: prefsData, isLoading } = useQuery({
+    queryKey: ["admin", "notification-prefs"],
+    queryFn: () => api.get("/admin/notifications/preferences").then((r) => r.data),
+  });
+
+  // Sync API data into local state
+  useEffect(() => {
+    if (prefsData) {
+      setNotifications({
+        transactions: prefsData.transactions ?? true,
+        kyc: prefsData.kyc ?? true,
+        support: prefsData.support ?? true,
+        system: prefsData.system ?? true,
+        security: prefsData.security ?? true,
+      });
+    }
+  }, [prefsData]);
+
+  const savePrefs = useMutation({
+    mutationFn: () =>
+      api.patch("/admin/notifications/preferences", notifications).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
+      toast.success("Preferences saved");
+      setSaveOpen(false);
+    },
+    onError: () => toast.error("Failed to save preferences"),
+  });
 
   const toggleNotification = (key: string) =>
     setNotifications((p) => ({ ...p, [key]: !p[key] }));
@@ -48,7 +79,7 @@ export const PreferencesTab = () => {
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Choose what you want to be notified about</p>
         </div>
         <div className="space-y-2">
-          {notificationSettings.map(({ key, label, description }) => (
+          {notificationKeys.map(({ key, label, description }) => (
             <div
               key={key}
               className="flex items-center justify-between px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px] hover:bg-[#EFEFEF]/80 dark:hover:bg-[#333]/80 transition-colors"
@@ -57,11 +88,15 @@ export const PreferencesTab = () => {
                 <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{label}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">{description}</p>
               </div>
-              <Switch
-                checked={notifications[key]}
-                onCheckedChange={() => toggleNotification(key)}
-                className="data-[state=checked]:bg-green-500 scale-90 flex-shrink-0"
-              />
+              {isLoading ? (
+                <Skeleton className="h-5 w-9 rounded-full" />
+              ) : (
+                <Switch
+                  checked={notifications[key]}
+                  onCheckedChange={() => toggleNotification(key)}
+                  className="data-[state=checked]:bg-green-500 scale-90 flex-shrink-0"
+                />
+              )}
             </div>
           ))}
         </div>
@@ -89,19 +124,11 @@ export const PreferencesTab = () => {
               >
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center",
-                  theme === id
-                    ? "bg-white/70 dark:bg-[#1C1C1C]/60"
-                    : "bg-white/60 dark:bg-[#1C1C1C]/40"
+                  theme === id ? "bg-white/70 dark:bg-[#1C1C1C]/60" : "bg-white/60 dark:bg-[#1C1C1C]/40"
                 )}>
-                  <Icon className={cn(
-                    "w-4 h-4",
-                    theme === id ? "text-orange-600 dark:text-orange-400" : "text-gray-500 dark:text-gray-400"
-                  )} />
+                  <Icon className={cn("w-4 h-4", theme === id ? "text-orange-600 dark:text-orange-400" : "text-gray-500 dark:text-gray-400")} />
                 </div>
-                <span className={cn(
-                  "text-[10px] font-semibold",
-                  theme === id ? "text-orange-700 dark:text-orange-400" : "text-gray-600 dark:text-gray-400"
-                )}>
+                <span className={cn("text-[10px] font-semibold", theme === id ? "text-orange-700 dark:text-orange-400" : "text-gray-600 dark:text-gray-400")}>
                   {label}
                 </span>
               </button>
@@ -165,10 +192,11 @@ export const PreferencesTab = () => {
               Cancel
             </button>
             <button
-              onClick={() => setSaveOpen(false)}
-              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
+              onClick={() => savePrefs.mutate()}
+              disabled={savePrefs.isPending}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
             >
-              Save Changes
+              {savePrefs.isPending ? "Saving…" : "Save Changes"}
             </button>
           </DialogFooter>
         </DialogContent>

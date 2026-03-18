@@ -29,9 +29,9 @@ const MyProfile = () => {
         Back
       </button>
 
-      <div className="flex gap-3 items-start">
+      <div className="flex md:flex-row flex-col gap-3 items-start">
         {/* Sidebar Nav */}
-        <div className="w-44 flex-shrink-0 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-2">
+        <div className="w-full md:w-44 flex-shrink-0 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-2">
           <nav className="space-y-1">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button

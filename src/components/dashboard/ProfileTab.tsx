@@ -1,75 +1,164 @@
-import { useState } from "react";
-import { Camera, Trash2, Lock, Shield, ChevronRight, LogOut, Monitor, Smartphone } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Camera, Trash2, Lock, Shield, ChevronRight, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-
-const sessions = [
-  { device: "MacBook Pro", browser: "Edge macOS", ip: "102.89.21.3", location: "Lagos, Nigeria", lastActive: "—", status: "current" as const },
-  { device: "HP Elite Book", browser: "Chrome Windows", ip: "402.89.21.3", location: "Abuja, Nigeria", lastActive: "Jan 13, 2:30 PM", status: "active" as const },
-];
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/store/authStore";
+import {
+  useMe, useUpdateProfile, useUploadProfilePicture, useDeleteProfilePicture,
+  useChangePassword, useSessions, useLogoutAllSessions, useLogoutSession,
+} from "@/hooks/useProfile";
+import { getAvatarUrl } from "@/lib/utils";
 
 export const ProfileTab = () => {
-  const [form, setForm] = useState({ firstName: "Wizz", lastName: "Jeo", phone: "08142131582", role: "Super Admin" });
+  const { admin } = useAuthStore();
+  const { data: me, isLoading: meLoading } = useMe();
+  const updateProfile = useUpdateProfile();
+  const uploadPicture = useUploadProfilePicture();
+  const deletePicture = useDeleteProfilePicture();
+  const changePassword = useChangePassword();
+  const { data: sessionsData, isLoading: sessionsLoading } = useSessions();
+  const logoutAll = useLogoutAllSessions();
+  const logoutSession = useLogoutSession();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fullNameParts = (me?.full_name ?? admin?.full_name ?? "").split(" ");
+
+const [form, setForm] = useState({
+  firstName: me?.first_name ?? admin?.first_name ?? fullNameParts[0] ?? "",
+  lastName: me?.last_name ?? admin?.last_name ?? fullNameParts.slice(1).join(" ") ?? "",
+  phone: me?.phone ?? admin?.phone ?? "",
+  role: me?.role ?? admin?.role ?? "",
+});
+
+useEffect(() => {
+  if (me) {
+    const parts = (me.full_name ?? "").split(" ");
+    setForm({
+      firstName: me.first_name ?? parts[0] ?? "",
+      lastName: me.last_name ?? parts.slice(1).join(" ") ?? "",
+      phone: me.phone ?? "",
+      role: me.role ?? "",
+    });
+  }
+}, [me]);
+
   const [twoFA, setTwoFA] = useState(true);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [logoutAllOpen, setLogoutAllOpen] = useState(false);
-  const [sessionToLogout, setSessionToLogout] = useState<number | null>(null);
+  const [sessionToLogout, setSessionToLogout] = useState<string | null>(null);
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
+
+  const rawSessions = sessionsData?.sessions ?? sessionsData?.data ?? sessionsData?.items ?? sessionsData;
+const sessions = Array.isArray(rawSessions) ? rawSessions : [];
+
+  const avatarUrl = getAvatarUrl(me?.avatar_url ?? admin?.avatar_url);
+  const displayName = (me?.first_name && me?.last_name)
+  ? `${me.first_name} ${me.last_name}`
+  : me?.first_name ?? me?.last_name ?? admin?.full_name ?? "Admin";
+  const displayEmail = me?.email ?? admin?.email ?? "";
+  const displayRole = (me?.role ?? admin?.role) === "superadmin" ? "Super Admin" : (me?.role ?? admin?.role ?? "Admin");
+
+const initials = displayName.split(" ")
+  .filter(Boolean)
+  .map((n: string) => n[0])
+  .join("")
+  .toUpperCase()
+  .slice(0, 2) || "AD";
+
+  const handleSaveProfile = () => {
+    updateProfile.mutate({
+      first_name: form.firstName,
+      last_name: form.lastName,
+      phone: form.phone,
+    });
+  };
+
+  const handleChangePassword = () => {
+    if (passwords.newPass !== passwords.confirm) return;
+    changePassword.mutate(
+      { current_password: passwords.current, new_password: passwords.newPass },
+      {
+        onSuccess: () => {
+          setPasswordOpen(false);
+          setPasswords({ current: "", newPass: "", confirm: "" });
+        },
+      }
+    );
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadPicture.mutate(file);
+  };
+
+  const handleLogoutAll = () => {
+    logoutAll.mutate(undefined, { onSuccess: () => setLogoutAllOpen(false) });
+  };
+
+  const handleLogoutSession = () => {
+    if (!sessionToLogout) return;
+    logoutSession.mutate(sessionToLogout, { onSuccess: () => setSessionToLogout(null) });
+  };
 
   return (
     <div className="space-y-3">
       {/* Profile Card */}
       <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
-        {/* Hero Banner */}
         <div className="h-20 relative">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,191,36,0.15),transparent_70%)]" />
         </div>
 
         <div className="px-5 pb-5">
-          {/* Avatar row */}
           <div className="flex items-end gap-4 -mt-8 mb-4">
-            <div className="w-16 h-16 rounded-full ring-4 ring-white dark:ring-[#1C1C1C] overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex-shrink-0 shadow-lg">
-              <img
-                src="https://ca.slack-edge.com/T08BN2VF2GL-U0A25LVCYL9-11f7983440b6-512"
-                alt="Avatar"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
-              />
+            <div className={`w-16 h-16 rounded-full ring-4 ring-white dark:ring-[#1C1C1C] overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center ${!avatarUrl ? "bg-gradient-to-br from-orange-400 to-orange-600" : ""}`}>
+              {meLoading ? (
+                <Skeleton className="w-16 h-16 rounded-full" />
+              ) : avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white text-xl font-bold">{initials}</span>
+              )}
             </div>
             <div className="pb-1">
-              <h2 className="text-[15px] font-bold text-gray-900 dark:text-white">Obed Vine</h2>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">beddv@gmail.com</p>
-              <Badge className="mt-1 text-[9px] px-2 py-0.5 bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-500/20 dark:to-orange-500/10 text-orange-700 dark:text-orange-400 border-0 rounded-full font-bold uppercase tracking-wide">
-                Super Admin
-              </Badge>
+              {meLoading ? (
+                <Skeleton className="h-4 w-32 mb-1" />
+              ) : (
+                <>
+                  <h2 className="text-[15px] font-bold text-gray-900 dark:text-white">{displayName}</h2>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">{displayEmail}</p>
+                  <Badge className="mt-1 text-[9px] px-2 py-0.5 bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-500/20 dark:to-orange-500/10 text-orange-700 dark:text-orange-400 border-0 rounded-full font-bold uppercase tracking-wide">
+                    {displayRole}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Picture actions */}
           <div className="flex items-center gap-2 mb-1">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all duration-200 border border-gray-200/60 dark:border-gray-700/40">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadPicture.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all duration-200 border border-gray-200/60 dark:border-gray-700/40 disabled:opacity-60"
+            >
               <Camera className="w-3.5 h-3.5" />
-              Change Picture
+              {uploadPicture.isPending ? "Uploading…" : "Change Picture"}
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all duration-200 border border-gray-200/60 dark:border-gray-700/40">
+            <button
+              onClick={() => deletePicture.mutate()}
+              disabled={deletePicture.isPending || !avatarUrl}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all duration-200 border border-gray-200/60 dark:border-gray-700/40 disabled:opacity-40"
+            >
               <Trash2 className="w-3 h-3" />
               Remove Picture
             </button>
@@ -94,18 +183,26 @@ export const ProfileTab = () => {
           ].map(({ label, key }) => (
             <div key={key} className="space-y-1">
               <Label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">{label}</Label>
-              <Input
-                value={form[key as keyof typeof form]}
-                onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                disabled={key === "role"}
-                className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-[10px] text-[12px] disabled:opacity-60"
-              />
+              {meLoading ? (
+                <Skeleton className="h-9 rounded-[10px]" />
+              ) : (
+                <Input
+                  value={form[key as keyof typeof form]}
+                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                  disabled={key === "role"}
+                  className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-[10px] text-[12px] disabled:opacity-60"
+                />
+              )}
             </div>
           ))}
         </div>
 
-        <button className="px-5 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all duration-200 shadow-md shadow-orange-500/20">
-          Save Changes
+        <button
+          onClick={handleSaveProfile}
+          disabled={updateProfile.isPending}
+          className="px-5 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all duration-200 shadow-md shadow-orange-500/20 disabled:opacity-60"
+        >
+          {updateProfile.isPending ? "Saving…" : "Save Changes"}
         </button>
       </div>
 
@@ -147,7 +244,9 @@ export const ProfileTab = () => {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Active Session Logs</h3>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{sessions.length} devices signed in</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+              {sessionsLoading ? "Loading…" : `${sessions.length} devices signed in`}
+            </p>
           </div>
           <button
             onClick={() => setLogoutAllOpen(true)}
@@ -168,36 +267,50 @@ export const ProfileTab = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sessions.map((s, i) => (
-                <TableRow key={i} className="border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5]/40 dark:hover:bg-[#2D2B2B]/40">
-                  <TableCell className="py-2">
-                    <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{s.device}</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-500">{s.browser}</p>
-                  </TableCell>
-                  <TableCell className="text-[11px] text-gray-600 dark:text-gray-400 py-2">{s.ip}</TableCell>
-                  <TableCell className="text-[11px] text-gray-600 dark:text-gray-400 py-2">{s.location}</TableCell>
-                  <TableCell className="text-[11px] text-gray-500 dark:text-gray-500 py-2">{s.lastActive}</TableCell>
-                  <TableCell className="py-2">
-                    <Badge className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
-                      s.status === "current"
-                        ? "bg-green-50 text-green-600 border-green-200/60 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20"
-                        : "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
-                    }`}>
-                      {s.status === "current" ? "Current" : "Active"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="py-2">
-                    {s.status !== "current" && (
-                      <button
-                        onClick={() => setSessionToLogout(i)}
-                        className="px-2.5 py-1 rounded-[8px] text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 border border-gray-200/60 dark:border-gray-700/40 transition-all duration-200"
-                      >
-                        Logout
-                      </button>
-                    )}
-                  </TableCell>
+              {sessionsLoading ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((__, j) => (
+                      <TableCell key={j} className="py-2"><Skeleton className="h-4 w-full" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : sessions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-[12px] text-gray-400 py-6">No active sessions</TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                sessions.map((s: any, i: number) => (
+                  <TableRow key={s.id ?? i} className="border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5]/40 dark:hover:bg-[#2D2B2B]/40">
+                    <TableCell className="py-2">
+                      <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{s.device ?? "Unknown"}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-500">{s.browser ?? "—"}</p>
+                    </TableCell>
+                    <TableCell className="text-[11px] text-gray-600 dark:text-gray-400 py-2">{s.ip_address ?? s.ip ?? "—"}</TableCell>
+                    <TableCell className="text-[11px] text-gray-600 dark:text-gray-400 py-2">{s.location ?? "—"}</TableCell>
+                    <TableCell className="text-[11px] text-gray-500 dark:text-gray-500 py-2">{s.last_active ?? s.lastActive ?? "—"}</TableCell>
+                    <TableCell className="py-2">
+                      <Badge className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
+                        s.is_current
+                          ? "bg-green-50 text-green-600 border-green-200/60 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20"
+                          : "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
+                      }`}>
+                        {s.is_current ? "Current" : "Active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {!s.is_current && (
+                        <button
+                          onClick={() => setSessionToLogout(s.id)}
+                          className="px-2.5 py-1 rounded-[8px] text-[11px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 border border-gray-200/60 dark:border-gray-700/40 transition-all duration-200"
+                        >
+                          Logout
+                        </button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -228,6 +341,9 @@ export const ProfileTab = () => {
                 />
               </div>
             ))}
+            {passwords.newPass && passwords.confirm && passwords.newPass !== passwords.confirm && (
+              <p className="text-[11px] text-red-500">Passwords do not match.</p>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <button
@@ -237,10 +353,11 @@ export const ProfileTab = () => {
               Cancel
             </button>
             <button
-              onClick={() => setPasswordOpen(false)}
-              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
+              onClick={handleChangePassword}
+              disabled={changePassword.isPending || !passwords.current || passwords.newPass !== passwords.confirm}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
             >
-              Update Password
+              {changePassword.isPending ? "Updating…" : "Update Password"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -256,17 +373,15 @@ export const ProfileTab = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <button
-              onClick={() => setLogoutAllOpen(false)}
-              className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
-            >
+            <button onClick={() => setLogoutAllOpen(false)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">
               Cancel
             </button>
             <button
-              onClick={() => setLogoutAllOpen(false)}
-              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md shadow-red-500/20"
+              onClick={handleLogoutAll}
+              disabled={logoutAll.isPending}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md shadow-red-500/20 disabled:opacity-60"
             >
-              Logout All
+              {logoutAll.isPending ? "Logging out…" : "Logout All"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -278,21 +393,19 @@ export const ProfileTab = () => {
           <DialogHeader>
             <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">End Session?</DialogTitle>
             <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
-              {sessionToLogout !== null && `This will log out ${sessions[sessionToLogout]?.device} (${sessions[sessionToLogout]?.location}).`}
+              This will log out the selected device session.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <button
-              onClick={() => setSessionToLogout(null)}
-              className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
-            >
+            <button onClick={() => setSessionToLogout(null)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">
               Cancel
             </button>
             <button
-              onClick={() => setSessionToLogout(null)}
-              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md shadow-red-500/20"
+              onClick={handleLogoutSession}
+              disabled={logoutSession.isPending}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md shadow-red-500/20 disabled:opacity-60"
             >
-              End Session
+              {logoutSession.isPending ? "Ending…" : "End Session"}
             </button>
           </DialogFooter>
         </DialogContent>

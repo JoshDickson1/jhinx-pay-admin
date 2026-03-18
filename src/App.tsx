@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { NotificationsProvider } from "@/hooks/use-notifications";
 import { Loading } from "@/pages/Loading";
+import { queryClient } from "@/lib/queryClient";
+import { useAuthStore } from "@/store/authStore";
 import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
 import Users from "@/pages/Users";
@@ -35,30 +38,26 @@ import SystemHealth from "@/pages/SystemHealth";
 import AllNotifications from "@/pages/AllNotifications";
 import RateControl from "@/pages/RateControl";
 
-const queryClient = new QueryClient();
-
 const App = () => {
   const [loaded, setLoaded] = useState(false);
-  const [authed, setAuthed] = useState(false);
+  const { isAuthenticated } = useAuthStore();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
         <NotificationsProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-
+            <Sonner position="bottom-right" richColors />
             {!loaded && <Loading onComplete={() => setLoaded(true)} />}
 
             <div className={`transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
               <BrowserRouter>
                 <Routes>
-                  <Route path="/login" element={<Login onLogin={() => setAuthed(true)} />} />
+                  <Route path="/login" element={<Login onLogin={() => {}} />} />
                   <Route
                     path="/*"
                     element={
-                      !authed ? (
+                      !isAuthenticated ? (
                         <Navigate to="/login" replace />
                       ) : (
                         <AdminLayout>
@@ -101,6 +100,7 @@ const App = () => {
               </BrowserRouter>
             </div>
 
+            <ReactQueryDevtools initialIsOpen={false} />
           </TooltipProvider>
         </NotificationsProvider>
       </ThemeProvider>

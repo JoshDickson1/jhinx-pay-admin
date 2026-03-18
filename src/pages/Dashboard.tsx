@@ -4,76 +4,104 @@ import { SystemHealth } from "@/components/dashboard/SystemHealth";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { PendingActions } from "@/components/dashboard/PendingActions";
 import RevenueBreakdown from "@/components/dashboard/RevenueBreakdown";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDashboardMetrics } from "@/hooks/useDashboard";
+import { useAuthStore } from "@/store/authStore";
 
 const Dashboard = () => {
+  const { data: metrics, isLoading } = useDashboardMetrics();
+  const { admin } = useAuthStore();
+
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Page Header */}
       <div className="px-1">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-0.5 text-[12px]">
-          Welcome back, Sarah. Here's what's happening today.
+          Welcome back, {admin?.full_name ?? "Admin"}. Here's what's happening today.
         </p>
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricCard
-          title="Total Users"
-          value="5,247"
-          change="+12%"
-          changeType="positive"
-          icon={Users}
-          description="This week"
-        />
-        <MetricCard
-          title="Transaction Volume"
-          value="₦45.2M"
-          change="+8%"
-          changeType="positive"
-          icon={ArrowLeftRight}
-          description="This month"
-        />
-        <MetricCard
-          title="Total Transactions"
-          value="12,834"
-          change="+15%"
-          changeType="positive"
-          icon={TrendingUp}
-          description="This week"
-        />
-        <MetricCard
-          title="Platform Revenue"
-          value="₦1.2M"
-          change="+5%"
-          changeType="positive"
-          icon={Wallet}
-          description="This month"
-        />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))
+        ) : (
+          <>
+            <MetricCard
+              title="Total Users"
+              value={metrics?.totalUsers?.toLocaleString() ?? "—"}
+              change={metrics?.userGrowth ?? ""}
+              changeType="positive"
+              icon={Users}
+              description="This week"
+            />
+            <MetricCard
+              title="Transaction Volume"
+              value={metrics?.transactionVolume ?? "—"}
+              change={metrics?.volumeGrowth ?? ""}
+              changeType="positive"
+              icon={ArrowLeftRight}
+              description="This month"
+            />
+            <MetricCard
+              title="Total Transactions"
+              value={metrics?.totalTransactions?.toLocaleString() ?? "—"}
+              change={metrics?.transactionGrowth ?? ""}
+              changeType="positive"
+              icon={TrendingUp}
+              description="This week"
+            />
+            <MetricCard
+              title="Platform Revenue"
+              value={metrics?.platformRevenue ?? "—"}
+              change={metrics?.revenueGrowth ?? ""}
+              changeType="positive"
+              icon={Wallet}
+              description="This month"
+            />
+          </>
+        )}
       </div>
 
       {/* Alert Banner for pending items */}
-      <div className="bg-gradient-to-r from-orange-50 via-orange-50/50 to-transparent dark:from-orange-500/10 dark:via-orange-500/5 dark:to-transparent backdrop-blur-sm border border-orange-200/50 dark:border-orange-500/20 rounded-[16px] p-3.5 flex items-center gap-3 shadow-sm">
-        <div className="w-9 h-9 rounded-[11px] bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/20">
-          <AlertTriangle className="w-4 h-4 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 dark:text-white text-[13px]">Action Required</h3>
-          <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-0.5">
-            You have <span className="text-orange-600 dark:text-orange-400 font-semibold">23 gift card approvals</span> and{" "}
-            <span className="text-orange-600 dark:text-orange-400 font-semibold">14 KYC submissions</span> pending review.
-          </p>
-        </div>
-        
-        <a href="/transactions/gift-cards"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-[11px] hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg shadow-orange-500/30 text-[12px]"
-        >
-          <div className="w-[15px] h-[15px] flex items-center justify-center">
-            <CreditCard className="w-[13px] h-[13px]" />
+      {(isLoading || (metrics && (metrics.pendingGiftCards > 0 || metrics.pendingKYC > 0))) && (
+        <div className="bg-gradient-to-r from-orange-50 via-orange-50/50 to-transparent dark:from-orange-500/10 dark:via-orange-500/5 dark:to-transparent backdrop-blur-sm border border-orange-200/50 dark:border-orange-500/20 rounded-[16px] p-3.5 flex items-center gap-3 shadow-sm">
+          <div className="w-9 h-9 rounded-[11px] bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/20">
+            <AlertTriangle className="w-4 h-4 text-white" />
           </div>
-          Review Now
-        </a>
-      </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white text-[13px]">Action Required</h3>
+            {isLoading ? (
+              <Skeleton className="h-3 w-64 mt-1" />
+            ) : (
+              <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-0.5">
+                You have{" "}
+                <span className="text-orange-600 dark:text-orange-400 font-semibold">
+                  {metrics?.pendingGiftCards} gift card approvals
+                </span>{" "}
+                and{" "}
+                <span className="text-orange-600 dark:text-orange-400 font-semibold">
+                  {metrics?.pendingKYC} KYC submissions
+                </span>{" "}
+                pending review.
+              </p>
+            )}
+          </div>
+
+          
+          <a  href="/transactions/gift-cards"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-[11px] hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg shadow-orange-500/30 text-[12px]"
+          >
+            <div className="w-[15px] h-[15px] flex items-center justify-center">
+              <CreditCard className="w-[13px] h-[13px]" />
+            </div>
+            Review Now
+          </a>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
