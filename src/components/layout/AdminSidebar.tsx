@@ -337,7 +337,7 @@ export const AdminSidebar = () => {
         )}
       >
         {/* Mobile sidebar header with close button */}
-        <div className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 border-b border-gray-200/30 dark:border-gray-700/30 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-2xl z-10">
+        {/* <div className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 border-b border-gray-200/30 dark:border-gray-700/30 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-2xl z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-[12px] bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
               <span className="text-white font-bold text-xs">JP</span>
@@ -350,10 +350,10 @@ export const AdminSidebar = () => {
           >
             <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </button>
-        </div>
+        </div> */}
 
         {/* Sidebar content pushed below header */}
-        <div className="pt-14 h-full">
+        <div className="h-full z-50">
           <SidebarContent onNavigate={closeSidebar} />
         </div>
       </aside>
