@@ -1,4 +1,4 @@
-import { ChevronDown, Search, Settings } from "lucide-react";
+import { ChevronDown, Menu, Search, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import Breadcrumbs from "./Breadcrumbs";
 import { useAuthStore } from "@/store/authStore";
 import api from "@/api/axiosInstance";
 import { getAvatarUrl } from "@/lib/utils";
+import { useSidebarStore } from "@/store/sidebarStore";
 
 export const AdminHeader = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ export const AdminHeader = () => {
   const handleLogout = async () => {
     try {
       await api.post("/admin/logout");
-    } catch (_) {}
+    } catch (_) { }
     finally {
       logout();
       navigate("/login");
@@ -63,6 +64,7 @@ export const AdminHeader = () => {
       </div>
     );
   };
+  const { toggle: toggleSidebar } = useSidebarStore();
 
   const ProfileMenuContent = () => (
     <DropdownMenuContent
@@ -98,10 +100,10 @@ export const AdminHeader = () => {
       <DropdownMenuItem onClick={() => navigate("/preferences")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
         <span className="font-medium">Preferences</span>
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => navigate("/support/help-center")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
+      {/* <DropdownMenuItem onClick={() => navigate("/support/help-center")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
         <span className="font-medium">Keyboard Shortcuts</span>
         <kbd className="ml-auto text-[9px] font-semibold text-gray-500 dark:text-gray-500 bg-white/80 dark:bg-[#3A3737] px-1.5 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">⌘K</kbd>
-      </DropdownMenuItem>
+      </DropdownMenuItem> */}
 
       <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30 my-1.5" />
 
@@ -126,11 +128,12 @@ export const AdminHeader = () => {
       <div className="lg:hidden fixed top-0 right-0 h-14 flex items-center gap-1.5 px-3 z-50">
         <ThemeToggle />
         <NotificationsDropdown />
-        <Link to="/settings">
-          <div className="w-7 h-7 rounded-full bg-white/60 dark:bg-[#3A3737] flex items-center justify-center transition-all duration-300">
-            <Settings className="w-[15px] h-[15px] text-gray-700 dark:text-gray-300" />
-          </div>
-        </Link>
+        <button
+          onClick={toggleSidebar}
+          className="w-7 h-7 rounded-full bg-white/60 dark:bg-[#3A3737] flex items-center justify-center transition-all duration-300"
+        >
+          <Menu className="w-[15px] h-[15px] text-gray-700 dark:text-gray-300" />
+        </button>
 
         <div className="bg-gradient-to-r from-[#FFE6B0]/30 via-[#FFD98A]/20 to-transparent dark:from-[#E7E7E7]/5 dark:to-[#E7E7E7]/5 pl-1 pr-1 pt-1 justify-center items-center rounded-full backdrop-blur-sm border border-orange-200/30 dark:border-orange-500/20">
           <DropdownMenu>
@@ -169,6 +172,7 @@ export const AdminHeader = () => {
         <div className="flex items-center gap-1.5">
           <ThemeToggle />
           <NotificationsDropdown />
+
           <Link to="/settings">
             <div className="w-7 h-7 rounded-full bg-white/60 dark:bg-[#3A3737] flex items-center justify-center transition-all duration-300">
               <Settings className="w-[15px] h-[15px] text-gray-700 dark:text-gray-300" />
@@ -202,6 +206,7 @@ export const AdminHeader = () => {
             </DropdownMenu>
           </div>
         </div>
+
       </header>
     </>
   );

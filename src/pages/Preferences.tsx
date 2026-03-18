@@ -1,330 +1,225 @@
-import { useState } from "react";
-import { 
-  Bell, 
-  Moon, 
-  Sun, 
-  Monitor,
-  Volume2,
-  Mail,
-  Smartphone,
-  Globe,
-  Clock,
-  Save
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { Sun, Moon, Monitor, ChevronDown, Save } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
 import { toast } from "sonner";
+import api from "@/api/axiosInstance";
+
+type Theme = "light" | "dark" | "system";
+
+const notificationKeys = [
+  { key: "transactions", label: "New Transactions", description: "Gift card submissions, crypto trades" },
+  { key: "kyc", label: "KYC Updates", description: "New submissions and status changes" },
+  { key: "support", label: "Support Tickets", description: "New tickets and replies" },
+  { key: "system", label: "System Alerts", description: "Maintenance and updates" },
+  { key: "security", label: "Security Alerts", description: "Suspicious activity and fraud" },
+];
+
+const themeOptions: { id: Theme; label: string; icon: React.ElementType }[] = [
+  { id: "light", label: "Light Mode", icon: Sun },
+  { id: "dark", label: "Dark Mode", icon: Moon },
+  { id: "system", label: "System Default", icon: Monitor },
+];
 
 const Preferences = () => {
   const { theme, setTheme } = useTheme();
-  const [preferences, setPreferences] = useState({
-    // Notifications
-    emailNotifications: true,
-    pushNotifications: true,
-    soundEnabled: true,
-    desktopNotifications: false,
-    
-    // Notification types
-    newTransactions: true,
-    kycUpdates: true,
-    supportTickets: true,
-    systemAlerts: true,
-    securityAlerts: true,
-    weeklyReports: false,
-    
-    // Display
-    language: "en",
-    timezone: "WAT",
-    dateFormat: "DD/MM/YYYY",
-    currency: "NGN",
-    
-    // Table preferences
-    rowsPerPage: "25",
-    compactMode: false,
+  const qc = useQueryClient();
+
+  const [currency, setCurrency] = useState("Nigeria Naira (₦)");
+  const [rowsPerPage, setRowsPerPage] = useState("25 Rows");
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Record<string, boolean>>({
+    transactions: true, kyc: true, support: true, system: true, security: true,
   });
 
-  const handleSave = () => {
-    toast.success("Preferences saved successfully");
-  };
+  const { data: prefsData, isLoading } = useQuery({
+    queryKey: ["admin", "notification-prefs"],
+    queryFn: () => api.get("/admin/notifications/preferences").then((r) => r.data),
+  });
+
+  useEffect(() => {
+    if (prefsData) {
+      setNotifications({
+        transactions: prefsData.transactions ?? true,
+        kyc: prefsData.kyc ?? true,
+        support: prefsData.support ?? true,
+        system: prefsData.system ?? true,
+        security: prefsData.security ?? true,
+      });
+    }
+  }, [prefsData]);
+
+  const savePrefs = useMutation({
+    mutationFn: () =>
+      api.patch("/admin/notifications/preferences", notifications).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
+      toast.success("Preferences saved");
+      setSaveOpen(false);
+    },
+    onError: () => toast.error("Failed to save preferences"),
+  });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="px-1 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Preferences</h1>
-          <p className="text-muted-foreground mt-1">Customize your admin panel experience</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Preferences</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-0.5 text-[12px]">
+            Customize your admin panel experience
+          </p>
         </div>
-        <Button variant="accent" onClick={handleSave} className="gap-2">
-          <Save className="w-4 h-4" />
+        <button
+          onClick={() => setSaveOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all duration-200 shadow-md shadow-orange-500/20"
+        >
+          <Save className="w-3.5 h-3.5" />
           Save Preferences
-        </Button>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Appearance */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sun className="w-5 h-5 text-orange-500" />
-              Appearance
-            </CardTitle>
-            <CardDescription>Customize how the admin panel looks</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <Label>Theme</Label>
-              <RadioGroup 
-                value={theme} 
-                onValueChange={(value: "light" | "dark" | "system") => setTheme(value)}
-                className="grid grid-cols-3 gap-3"
-              >
-                <label 
-                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all ${
-                    theme === "light" ? "border-orange-500 bg-orange-500/5" : "border-border bg-surface-1"
-                  }`}
-                >
-                  <RadioGroupItem value="light" className="sr-only" />
-                  <Sun className={`w-6 h-6 ${theme === "light" ? "text-orange-500" : "text-muted-foreground"}`} />
-                  <span className={`text-sm ${theme === "light" ? "text-orange-500" : "text-foreground"}`}>Light</span>
-                </label>
-                <label 
-                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all ${
-                    theme === "dark" ? "border-orange-500 bg-orange-500/5" : "border-border bg-surface-1"
-                  }`}
-                >
-                  <RadioGroupItem value="dark" className="sr-only" />
-                  <Moon className={`w-6 h-6 ${theme === "dark" ? "text-orange-500" : "text-muted-foreground"}`} />
-                  <span className={`text-sm ${theme === "dark" ? "text-orange-500" : "text-foreground"}`}>Dark</span>
-                </label>
-                <label 
-                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-all ${
-                    theme === "system" ? "border-orange-500 bg-orange-500/5" : "border-border bg-surface-1"
-                  }`}
-                >
-                  <RadioGroupItem value="system" className="sr-only" />
-                  <Monitor className={`w-6 h-6 ${theme === "system" ? "text-orange-500" : "text-muted-foreground"}`} />
-                  <span className={`text-sm ${theme === "system" ? "text-orange-500" : "text-foreground"}`}>System</span>
-                </label>
-              </RadioGroup>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Compact Mode</Label>
-                <p className="text-sm text-muted-foreground">Use smaller spacing in tables and lists</p>
+      {/* Notification Preferences */}
+      <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+        <div className="mb-3">
+          <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Notification Preferences</h3>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Choose what you want to be notified about</p>
+        </div>
+        <div className="space-y-2">
+          {notificationKeys.map(({ key, label, description }) => (
+            <div
+              key={key}
+              className="flex items-center justify-between px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px] hover:bg-[#EFEFEF]/80 dark:hover:bg-[#333]/80 transition-colors"
+            >
+              <div>
+                <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{label}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{description}</p>
               </div>
-              <Switch 
-                checked={preferences.compactMode}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, compactMode: checked })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notifications */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Bell className="w-5 h-5 text-orange-500" />
-              Notifications
-            </CardTitle>
-            <CardDescription>Choose how you want to be notified</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-3">
-                <Mail className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <Label>Email Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive updates via email</p>
-                </div>
-              </div>
-              <Switch 
-                checked={preferences.emailNotifications}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, emailNotifications: checked })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-3">
-                <Smartphone className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <Label>Push Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive push notifications</p>
-                </div>
-              </div>
-              <Switch 
-                checked={preferences.pushNotifications}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, pushNotifications: checked })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-3">
-                <Volume2 className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <Label>Sound Alerts</Label>
-                  <p className="text-xs text-muted-foreground">Play sound for new notifications</p>
-                </div>
-              </div>
-              <Switch 
-                checked={preferences.soundEnabled}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, soundEnabled: checked })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-3">
-                <Monitor className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <Label>Desktop Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Show browser notifications</p>
-                </div>
-              </div>
-              <Switch 
-                checked={preferences.desktopNotifications}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, desktopNotifications: checked })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notification Types */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg">Notification Types</CardTitle>
-            <CardDescription>Select which events trigger notifications</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { key: "newTransactions", label: "New Transactions", desc: "Gift card submissions, crypto trades" },
-              { key: "kycUpdates", label: "KYC Updates", desc: "New submissions and status changes" },
-              { key: "supportTickets", label: "Support Tickets", desc: "New tickets and replies" },
-              { key: "systemAlerts", label: "System Alerts", desc: "Maintenance and updates" },
-              { key: "securityAlerts", label: "Security Alerts", desc: "Suspicious activity and fraud" },
-              { key: "weeklyReports", label: "Weekly Reports", desc: "Weekly summary emails" },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between py-2">
-                <div>
-                  <Label>{item.label}</Label>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-                <Switch 
-                  checked={preferences[item.key as keyof typeof preferences] as boolean}
-                  onCheckedChange={(checked) => 
-                    setPreferences({ ...preferences, [item.key]: checked })
-                  }
+              {isLoading ? (
+                <Skeleton className="h-5 w-9 rounded-full" />
+              ) : (
+                <Switch
+                  checked={notifications[key]}
+                  onCheckedChange={(val) => setNotifications((p) => ({ ...p, [key]: val }))}
+                  className="data-[state=checked]:bg-green-500 scale-90 flex-shrink-0"
                 />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Appearance + Display */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Appearance */}
+        <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+          <div className="mb-3">
+            <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Appearance</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Choose your preferred color theme</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {themeOptions.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTheme(id)}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-3 rounded-[12px] border transition-all duration-200",
+                  theme === id
+                    ? "bg-gradient-to-br from-[#FFE6B0]/60 to-[#FFD98A]/40 dark:from-orange-500/20 dark:to-orange-500/10 border-orange-300/60 dark:border-orange-500/30 shadow-sm"
+                    : "bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center",
+                  theme === id ? "bg-white/70 dark:bg-[#1C1C1C]/60" : "bg-white/60 dark:bg-[#1C1C1C]/40"
+                )}>
+                  <Icon className={cn(
+                    "w-4 h-4",
+                    theme === id ? "text-orange-600 dark:text-orange-400" : "text-gray-500 dark:text-gray-400"
+                  )} />
+                </div>
+                <span className={cn(
+                  "text-[10px] font-semibold",
+                  theme === id ? "text-orange-700 dark:text-orange-400" : "text-gray-600 dark:text-gray-400"
+                )}>
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Preferred Display — local only, no API */}
+        <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+          <div className="mb-3">
+            <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Preferred Display</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Local display settings</p>
+          </div>
+          <div className="space-y-3">
+            {[
+              {
+                label: "Default Currency Display",
+                value: currency,
+                setter: setCurrency,
+                options: ["Nigeria Naira (₦)", "US Dollar ($)", "Euro (€)", "British Pound (£)"],
+              },
+              {
+                label: "Rows Per Page (Tables)",
+                value: rowsPerPage,
+                setter: setRowsPerPage,
+                options: ["10 Rows", "25 Rows", "50 Rows", "100 Rows"],
+              },
+            ].map(({ label, value, setter, options }) => (
+              <div key={label} className="space-y-1">
+                <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">{label}</p>
+                <div className="relative">
+                  <select
+                    value={value}
+                    onChange={(e) => setter(e.target.value)}
+                    className="w-full appearance-none pl-3 pr-8 h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40 focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-all focus:outline-none"
+                  >
+                    {options.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        {/* Regional Settings */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Globe className="w-5 h-5 text-orange-500" />
-              Regional Settings
-            </CardTitle>
-            <CardDescription>Localization and format preferences</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Language</Label>
-              <Select 
-                value={preferences.language} 
-                onValueChange={(value) => setPreferences({ ...preferences, language: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fr">Français</SelectItem>
-                  <SelectItem value="es">Español</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select 
-                value={preferences.timezone} 
-                onValueChange={(value) => setPreferences({ ...preferences, timezone: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="WAT">West Africa Time (WAT)</SelectItem>
-                  <SelectItem value="GMT">Greenwich Mean Time (GMT)</SelectItem>
-                  <SelectItem value="UTC">Coordinated Universal Time (UTC)</SelectItem>
-                  <SelectItem value="EST">Eastern Standard Time (EST)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Date Format</Label>
-              <Select 
-                value={preferences.dateFormat} 
-                onValueChange={(value) => setPreferences({ ...preferences, dateFormat: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Default Currency Display</Label>
-              <Select 
-                value={preferences.currency} 
-                onValueChange={(value) => setPreferences({ ...preferences, currency: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
-                  <SelectItem value="USD">US Dollar ($)</SelectItem>
-                  <SelectItem value="EUR">Euro (€)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Rows Per Page (Tables)</Label>
-              <Select 
-                value={preferences.rowsPerPage} 
-                onValueChange={(value) => setPreferences({ ...preferences, rowsPerPage: value })}
-              >
-                <SelectTrigger className="bg-surface-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 rows</SelectItem>
-                  <SelectItem value="25">25 rows</SelectItem>
-                  <SelectItem value="50">50 rows</SelectItem>
-                  <SelectItem value="100">100 rows</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Save Confirmation Dialog */}
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent className="bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">Save Preferences?</DialogTitle>
+            <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
+              Your notification and appearance settings will be updated.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <button
+              onClick={() => setSaveOpen(false)}
+              className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => savePrefs.mutate()}
+              disabled={savePrefs.isPending}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
+            >
+              {savePrefs.isPending ? "Saving…" : "Save Changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

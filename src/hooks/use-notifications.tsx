@@ -1,130 +1,107 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/api/axiosInstance";
 
-export interface Notification {
+interface Notification {
   id: string;
-  type: "error" | "warning" | "success" | "info";
   title: string;
   message: string;
-  timestamp: Date;
+  type: "error" | "warning" | "success" | "info";
   read: boolean;
+  timestamp: Date;
   link?: string;
 }
 
-interface NotificationsContextType {
+interface NotificationsContextValue {
   notifications: Notification[];
   unreadCount: number;
-  addNotification: (notification: Omit<Notification, "id" | "timestamp" | "read">) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
-  clearAll: () => void;
+  isLoading: boolean;
 }
 
-const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
+const NotificationsContext = createContext<NotificationsContextValue>({
+  notifications: [],
+  unreadCount: 0,
+  markAsRead: () => {},
+  markAllAsRead: () => {},
+  removeNotification: () => {},
+  isLoading: false,
+});
 
-const initialNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "error",
-    title: "High fraud risk detected",
-    message: "User @scammer99 submitted 5 invalid cards",
-    timestamp: new Date(Date.now() - 2 * 60 * 1000),
-    read: false,
-    link: "/users",
-  },
-  {
-    id: "2",
-    type: "warning",
-    title: "Unusual activity",
-    message: "User @whale_trader made 15 transactions in 1 hour",
-    timestamp: new Date(Date.now() - 10 * 60 * 1000),
-    read: false,
-    link: "/transactions",
-  },
-  {
-    id: "3",
-    type: "success",
-    title: "KYC pending",
-    message: "3 new KYC submissions awaiting review",
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: false,
-    link: "/users/kyc-pending",
-  },
-  {
-    id: "4",
-    type: "info",
-    title: "System update",
-    message: "Platform maintenance scheduled for tonight 2AM",
-    timestamp: new Date(Date.now() - 60 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: "5",
-    type: "warning",
-    title: "API rate limit warning",
-    message: "Flutterwave API approaching rate limit",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    read: true,
-  },
-];
+// Normalize backend notification type to our four types
+const normalizeType = (type?: string): Notification["type"] => {
+  const t = (type ?? "").toLowerCase();
+  if (t.includes("error") || t.includes("fail") || t.includes("critical")) return "error";
+  if (t.includes("warn") || t.includes("alert")) return "warning";
+  if (t.includes("success") || t.includes("approved") || t.includes("completed")) return "success";
+  return "info";
+};
 
-export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "notifications"],
+    queryFn: () => api.get("/admin/notifications").then((r) => r.data),
+    refetchInterval: 60000, // refresh every 60s
+  });
+
+  const rawItems: any[] =
+    data?.notifications ?? data?.items ?? data?.data ??
+    (Array.isArray(data) ? data : []);
+
+  const notifications: Notification[] = rawItems.map((item: any) => ({
+    id: item.id ?? String(Math.random()),
+    title: item.title ?? item.subject ?? "Notification",
+    message: item.message ?? item.body ?? item.description ?? "",
+    type: normalizeType(item.type ?? item.notification_type),
+    read: item.is_read ?? item.read ?? false,
+    timestamp: new Date(item.created_at ?? item.timestamp ?? Date.now()),
+    link: item.link ?? item.action_url ?? undefined,
+  }));
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const addNotification = useCallback(
-    (notification: Omit<Notification, "id" | "timestamp" | "read">) => {
-      const newNotification: Notification = {
-        ...notification,
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: new Date(),
-        read: false,
-      };
-      setNotifications((prev) => [newNotification, ...prev]);
-    },
-    []
-  );
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.post(`/admin/notifications/${id}/read`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "notifications"] }),
+  });
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  }, []);
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => api.post("/admin/notifications/read-all"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "notifications"] }),
+  });
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
-
-  const removeNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
-
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
+  // Remove is local-only since there's no delete endpoint in the API
+  const removeNotification = (id: string) => {
+    qc.setQueryData(["admin", "notifications"], (old: any) => {
+      const items = old?.notifications ?? old?.items ?? old?.data ?? (Array.isArray(old) ? old : []);
+      const filtered = items.filter((item: any) => item.id !== id);
+      if (Array.isArray(old)) return filtered;
+      if (old?.notifications) return { ...old, notifications: filtered };
+      if (old?.items) return { ...old, items: filtered };
+      if (old?.data) return { ...old, data: filtered };
+      return filtered;
+    });
+  };
 
   return (
     <NotificationsContext.Provider
       value={{
         notifications,
         unreadCount,
-        addNotification,
-        markAsRead,
-        markAllAsRead,
+        markAsRead: (id) => markAsReadMutation.mutate(id),
+        markAllAsRead: () => markAllAsReadMutation.mutate(),
         removeNotification,
-        clearAll,
+        isLoading,
       }}
     >
       {children}
     </NotificationsContext.Provider>
   );
-}
-
-export const useNotifications = () => {
-  const context = useContext(NotificationsContext);
-  if (!context) {
-    throw new Error("useNotifications must be used within a NotificationsProvider");
-  }
-  return context;
 };
+
+export const useNotifications = () => useContext(NotificationsContext);
