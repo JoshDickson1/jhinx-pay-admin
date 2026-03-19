@@ -30,12 +30,12 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       admin: null,
       isAuthenticated: false,
+
       setAuth: (token, admin) => {
-        localStorage.setItem("jhinx_token", token);
         set({ token, admin, isAuthenticated: true });
       },
+
       logout: () => {
-        localStorage.removeItem("jhinx_token");
         set({ token: null, admin: null, isAuthenticated: false });
       },
     }),

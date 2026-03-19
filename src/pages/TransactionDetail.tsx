@@ -127,7 +127,14 @@ const TransactionDetail = () => {
       ? "border-orange-400 text-orange-600 dark:text-orange-400"
       : "border-red-500 text-red-600 dark:text-red-400";
 
-  const allNotes = [...(tx.admin_notes ?? []), ...localNotes];
+  const allNotes = [
+  ...(tx.admin_notes ?? []).map((n: any) => ({
+    by: "Admin",
+    note: n.note,
+    time: n.created_at,
+  })),
+  ...localNotes,
+];
 
   return (
     <div className="space-y-3 animate-fade-in">
@@ -214,14 +221,18 @@ const TransactionDetail = () => {
             <p className="text-[13px] font-bold text-gray-900 dark:text-white mb-4">Transaction Details</p>
             <div className="space-y-0 border border-gray-200/50 dark:border-gray-700/30 rounded-[12px] overflow-hidden mb-4">
               {[
-                { label: "Transaction ID:", value: tx.id ?? tx.transaction_id ?? id, mono: true },
-                { label: "Title:", value: tx.title ?? tx.type ?? "—" },
+                { label: "Transaction ID:", value: tx.reference ?? tx.id, mono: true },
+                { label: "Title:", value: tx.type_label ?? tx.type ?? "—" },
                 { label: "Amount:", value: formatVolume(tx.amount_ngn ?? 0), highlight: true },
-                { label: "Status:", value: tx.status ?? "—", badge: true },
+                { label: "Status:", value: tx.status_label ?? tx.status ?? "—", badge: true },
+                { label: "Payment Method:", value: tx.payment_method ?? "—" },
                 { label: "Created:", value: tx.created_at ? formatDate(tx.created_at) : "—" },
+                { label: "Updated:", value: tx.updated_at ? formatDate(tx.updated_at) : "—" },
                 { label: "User:", value: tx.user_full_name ?? "—" },
                 { label: "User Email:", value: tx.user_email ?? "—" },
-                { label: "Crypto Amount:", value: tx.crypto_amount ?? "—" },
+                { label: "Flagged:", value: tx.is_flagged_for_review ? `Yes — ${tx.flag_reason ?? ""}` : "No" },
+                { label: "Approval By:", value: tx.approval_by_admin_id ?? "—" },
+                { label: "Approval Time:", value: tx.approval_time ? formatDate(tx.approval_time) : "—" },
               ].map(({ label, value, mono, highlight, badge }, i) => (
                 <div
                   key={label}

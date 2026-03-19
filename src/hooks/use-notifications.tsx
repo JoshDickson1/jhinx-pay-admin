@@ -1,6 +1,7 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api/axiosInstance";
+import { useAuthStore } from "@/store/authStore";
 
 interface Notification {
   id: string;
@@ -30,7 +31,6 @@ const NotificationsContext = createContext<NotificationsContextValue>({
   isLoading: false,
 });
 
-// Normalize backend notification type to our four types
 const normalizeType = (type?: string): Notification["type"] => {
   const t = (type ?? "").toLowerCase();
   if (t.includes("error") || t.includes("fail") || t.includes("critical")) return "error";
@@ -42,31 +42,37 @@ const normalizeType = (type?: string): Notification["type"] => {
 export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin", "notifications"],
-    queryFn: () => api.get("/admin/notifications").then((r) => r.data),
-    refetchInterval: 60000, // refresh every 60s
-  });
+  const token = useAuthStore((s) => s.token);
 
-  const rawItems: any[] =
-    data?.notifications ?? data?.items ?? data?.data ??
-    (Array.isArray(data) ? data : []);
+const { data, isLoading } = useQuery({
+  queryKey: ["admin", "notifications"],
+  enabled: !!token,   // 🔥 CRITICAL FIX
+  queryFn: () => api.get("/admin/notifications").then((r) => r.data),
+  refetchInterval: token ? 60000 : false,
+  staleTime: 30000,
+});
 
-  const notifications: Notification[] = rawItems.map((item: any) => ({
-    id: item.id ?? String(Math.random()),
-    title: item.title ?? item.subject ?? "Notification",
-    message: item.message ?? item.body ?? item.description ?? "",
-    type: normalizeType(item.type ?? item.notification_type),
-    read: item.is_read ?? item.read ?? false,
-    timestamp: new Date(item.created_at ?? item.timestamp ?? Date.now()),
-    link: item.link ?? item.action_url ?? undefined,
-  }));
+  const rawItems: any[] = data?.notifications ?? data?.items ?? data?.data ?? (Array.isArray(data) ? data : []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notifications = useMemo(() => {
+    return rawItems.map((item: any) => ({
+      id: item.id ?? String(Math.random()),
+      title: item.title ?? item.subject ?? "Notification",
+      message: item.message ?? item.body ?? item.description ?? "",
+      type: normalizeType(item.type ?? item.notification_type),
+      read: item.is_read ?? item.read ?? false,
+      timestamp: new Date(item.created_at ?? item.timestamp ?? Date.now()),
+      link: item.link ?? item.action_url ?? undefined,
+    }));
+  }, [rawItems]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  );
 
   const markAsReadMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post(`/admin/notifications/${id}/read`),
+    mutationFn: (id: string) => api.post(`/admin/notifications/${id}/read`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "notifications"] }),
   });
 
@@ -75,11 +81,14 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "notifications"] }),
   });
 
-  // Remove is local-only since there's no delete endpoint in the API
+  const markAsRead = (id: string) => markAsReadMutation.mutate(id);
+  const markAllAsRead = () => markAllAsReadMutation.mutate();
+
   const removeNotification = (id: string) => {
     qc.setQueryData(["admin", "notifications"], (old: any) => {
       const items = old?.notifications ?? old?.items ?? old?.data ?? (Array.isArray(old) ? old : []);
       const filtered = items.filter((item: any) => item.id !== id);
+
       if (Array.isArray(old)) return filtered;
       if (old?.notifications) return { ...old, notifications: filtered };
       if (old?.items) return { ...old, items: filtered };
@@ -88,17 +97,20 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     });
   };
 
+  const value = useMemo(
+    () => ({
+      notifications,
+      unreadCount,
+      markAsRead,
+      markAllAsRead,
+      removeNotification,
+      isLoading,
+    }),
+    [notifications, unreadCount, isLoading]
+  );
+
   return (
-    <NotificationsContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        markAsRead: (id) => markAsReadMutation.mutate(id),
-        markAllAsRead: () => markAllAsReadMutation.mutate(),
-        removeNotification,
-        isLoading,
-      }}
-    >
+    <NotificationsContext.Provider value={value}>
       {children}
     </NotificationsContext.Provider>
   );

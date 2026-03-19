@@ -28,44 +28,48 @@ const Login = ({ onLogin }: LoginProps) => {
     mutationFn: (creds: { email: string; password: string }) =>
       api.post("/admin/login", creds).then((r) => r.data),
     onSuccess: async (data) => {
-      console.log("LOGIN RESPONSE:", data);
+  console.log("LOGIN RESPONSE:", data);
 
-      const token = data.access_token ?? data.token ?? data;
-      console.log("TOKEN:", token);
+  const token = data.access_token;
 
-      // Store token so /me request is authenticated
-      localStorage.setItem("jhinx_token", token);
+  if (!token) {
+    console.error("NO TOKEN RECEIVED");
+    return;
+  }
 
-      try {
-        const me = await api.get("/admin/me").then((r) => r.data);
-        console.log("ME RESPONSE:", me);
+  // 1. SET AUTH FIRST (CRITICAL)
+  setAuth(token, null);
 
-        setAuth(token, {
-          id: me.id ?? "",
-          email: me.email ?? "",
-          full_name: me.full_name ?? "",
-          first_name: me.first_name ?? null,
-          last_name: me.last_name ?? null,
-          phone: me.phone ?? null,
-          avatar_url: me.avatar_url ?? null,
-          role: me.role ?? "",
-          is_active: me.is_active ?? true,
-          last_login_at: me.last_login_at ?? null,
-          created_at: me.created_at ?? "",
-          updated_at: me.updated_at ?? "",
-        });
+  // 2. FORCE TOKEN INTO AXIOS CONTEXT
+  api.defaults.headers.common.Authorization = `Bearer ${token}`;
 
-        console.log("AUTH STORE:", useAuthStore.getState());
-      } catch (err) {
-        console.error("FAILED TO FETCH /me:", err);
-        toast.error("Could not load profile", {
-          description: "Login succeeded but profile fetch failed.",
-        });
-      }
+  try {
+    // 3. NOW /me will work because header is guaranteed
+    const me = await api.get("/admin/me").then((r) => r.data);
 
-      onLogin();
-      navigate("/");
-    },
+    console.log("ME RESPONSE:", me);
+
+    setAuth(token, {
+      id: me.id ?? "",
+      email: me.email ?? "",
+      full_name: me.full_name ?? "",
+      first_name: me.first_name ?? null,
+      last_name: me.last_name ?? null,
+      phone: me.phone ?? null,
+      avatar_url: me.avatar_url ?? null,
+      role: me.role ?? "",
+      is_active: me.is_active ?? true,
+      last_login_at: me.last_login_at ?? null,
+      created_at: me.created_at ?? "",
+      updated_at: me.updated_at ?? "",
+    });
+  } catch (err) {
+    console.error("FAILED TO FETCH /me:", err);
+  }
+
+  onLogin();
+  navigate("/", { replace: true });
+},
     onError: (err: any) => {
       console.error("LOGIN ERROR:", err?.response?.data);
       toast.error("Login failed", { description: "Invalid email or password." });
