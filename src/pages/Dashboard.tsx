@@ -31,37 +31,37 @@ const Dashboard = () => {
         ) : (
           <>
             <MetricCard
-              title="Total Users"
-              value={metrics?.totalUsers?.toLocaleString() ?? "—"}
-              change={metrics?.userGrowth ?? ""}
-              changeType="positive"
-              icon={Users}
-              description="This week"
-            />
-            <MetricCard
-              title="Transaction Volume"
-              value={metrics?.transactionVolume ?? "—"}
-              change={metrics?.volumeGrowth ?? ""}
-              changeType="positive"
-              icon={ArrowLeftRight}
-              description="This month"
-            />
-            <MetricCard
-              title="Total Transactions"
-              value={metrics?.totalTransactions?.toLocaleString() ?? "—"}
-              change={metrics?.transactionGrowth ?? ""}
-              changeType="positive"
-              icon={TrendingUp}
-              description="This week"
-            />
-            <MetricCard
-              title="Platform Revenue"
-              value={metrics?.platformRevenue ?? "—"}
-              change={metrics?.revenueGrowth ?? ""}
-              changeType="positive"
-              icon={Wallet}
-              description="This month"
-            />
+  title="Total Users"
+  value={metrics?.totalUsers?.toLocaleString() ?? "0"}
+  change={metrics?.userGrowth ?? "—"}
+  changeType={metrics?.userGrowth?.startsWith("-") ? "negative" : "positive"}
+  icon={Users}
+  description={metrics?.userGrowthLabel ?? "This month"}
+/>
+<MetricCard
+  title="Transaction Volume"
+  value={metrics?.transactionVolume ?? "₦0"}
+  change={metrics?.volumeGrowth ?? "—"}
+  changeType={metrics?.volumeGrowth?.startsWith("-") ? "negative" : "positive"}
+  icon={ArrowLeftRight}
+  description={metrics?.volumeGrowthLabel ?? "This week"}
+/>
+<MetricCard
+  title="Total Transactions"
+  value={metrics?.totalTransactions?.toLocaleString() ?? "0"}
+  change={metrics?.transactionGrowth ?? "—"}
+  changeType={metrics?.transactionGrowth?.startsWith("-") ? "negative" : "positive"}
+  icon={TrendingUp}
+  description={metrics?.transactionGrowthLabel ?? "This week"}
+/>
+<MetricCard
+  title="Platform Revenue"
+  value={metrics?.platformRevenue ?? "₦0"}
+  change={metrics?.revenueGrowth ?? "—"}
+  changeType={metrics?.revenueGrowth?.startsWith("-") ? "negative" : "positive"}
+  icon={Wallet}
+  description={metrics?.revenueGrowthLabel ?? "This month"}
+/>
           </>
         )}
       </div>

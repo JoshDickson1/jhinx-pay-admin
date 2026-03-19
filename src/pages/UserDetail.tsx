@@ -1,858 +1,650 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Switch } from "@/components/ui/switch";
 import {
-  ArrowLeft,
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  Smartphone,
-  Shield,
-  Clock,
-  Wallet,
-  ChevronDown,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  FileText,
-  Ban,
-  Unlock,
-  Key,
-  Download,
-  Plus,
-  Eye,
-  Check,
-  X,
-  Info,
-  Pause,
-  Send,
-  ZoomIn,
+  ArrowLeft, Mail, Phone, Calendar, Smartphone, Clock,
+  ChevronDown, AlertTriangle, Ban, Key, Download,
+  Check, X, Info, Pause, Send, Shield, MapPin,
+  Snowflake, CheckCircle, Flag, FileText,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import api from "@/api/axiosInstance";
+import { cn } from "@/lib/utils";
 
-// Mock user data
-const userData = {
-  id: "USR-001234",
-  name: "Obed Vine",
-  email: "beddv@gmail.com",
-  phone: "+234 801 234 5678",
-  profilePhoto: "https://i.pravatar.cc/150?img=12",
-  status: "active" as const,
-  joinDate: "Jul 15, 2025",
-  lastLogin: "2 hours ago",
-  kycTier: 3,
-  kycStatus: "approved" as const,
-  kycSubmittedDate: "Aug 1, 2025",
-  kycReviewedBy: "Admin Sarah",
-  device: "iPhone 14 Pro",
-  os: "iOS 17.2",
-  location: "Lagos, Nigeria",
-  balances: {
-    naira: 125450,
-    usdt: 250.0,
-    btc: 0.0023,
-    eth: 0.15,
-  },
-  riskAssessment: {
-    overallRating: 72,
-    accountAge: { value: "6 Months", risk: "Low" },
-    pastTrades: { value: 5, risk: "Low" },
-    totalVolume: { value: "$450", risk: "Low" },
-    lastTradeDate: { value: "Feb, 10 2:30pm", risk: "Low" },
-    cardAmount: { value: "$100", risk: "Mid" },
-    newDevice: { value: "Yes", risk: "Low" },
-    ipLocation: { value: "Lagos, Nigeria", risk: "Low" },
-  },
-  cardDetails: {
-    brand: "Amazon",
-    cardValue: "$100",
-    cardCode: "AMA-BXTY-JJDV-2KNN",
-    appliedRate: "₦1,500/$1",
-    payoutAmount: "₦150,000",
-    submissionTime: "Jan 13, 2:30 PM",
-    timeElapse: "Jan 13, 2:30 PM",
-    paymentMethod: "Naira Wallet",
-    status: "Pending",
-    imageQuality: "Good Quality",
-    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/2560px-Amazon_logo.svg.png",
-  },
-  adminNotes: [
-    {
-      by: "Admin Vine",
-      note: "Looks valid, User has clean history, and can be trusted",
-      date: "Jan 13, 2:30 PM",
-    },
-  ],
-  transactions: [
-    { id: "TX-001", type: "Crypto Buy", amount: "₦45,000", status: "completed", date: "Jan 13, 2026" },
-    { id: "TX-002", type: "Gift Card Sell", amount: "₦76,000", status: "completed", date: "Jan 12, 2026" },
-    { id: "TX-003", type: "Game Recharge", amount: "₦5,000", status: "completed", date: "Jan 10, 2026" },
-    { id: "TX-004", type: "Crypto Sell", amount: "₦120,000", status: "pending", date: "Jan 8, 2026" },
-    { id: "TX-005", type: "Gift Card Sell", amount: "₦38,000", status: "failed", date: "Jan 5, 2026" },
-  ],
-  auditLog: [
-    { action: "KYC Approved", by: "Admin Sarah", date: "Aug 1, 2025 • 2:30 PM" },
-    { action: "Account Created", by: "System", date: "Jul 15, 2025 • 10:15 AM" },
-  ],
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  tier: number;
+  is_active: boolean;
+  admin_status: string;
+  admin_status_reason: string | null;
+  is_flagged: boolean;
+  flag_reason: string | null;
+  kyc: any;
+  joined_at: string;
+  last_active_at: string | null;
+  last_login_at: string | null;
+  last_login_device: string | null;
+  last_login_ip: string | null;
+  volume_ngn: number;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount_ngn: number;
+  status: string;
+  created_at: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const formatTime = (d: string | null) => {
+  if (!d) return "Never";
+  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (diff < 60) return "Just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
 };
 
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
+
+const formatVolume = (v: number) =>
+  v === 0 ? "₦0" : `₦${v.toLocaleString("en-NG")}`;
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+
 const KycBadge = ({ tier }: { tier: number }) => {
-  const config = {
+  const config: Record<number, { label: string; className: string }> = {
     0: { label: "Tier 0", className: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300" },
     1: { label: "Tier 1", className: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400" },
     2: { label: "Tier 2", className: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400" },
     3: { label: "Tier 3", className: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400" },
   };
-  
+  const cfg = config[tier] ?? config[0];
   return (
-    <Badge className={`${config[tier as keyof typeof config]?.className || config[0].className} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5`}>
-      {config[tier as keyof typeof config]?.label || "Tier 0"}
+    <Badge className={`${cfg.className} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5`}>
+      {cfg.label}
     </Badge>
   );
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
+  const s = status.toLowerCase();
   const config: Record<string, string> = {
     active: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
     frozen: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400",
     banned: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+    suspended: "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
+    flagged: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
   };
-
   return (
-    <Badge className={`${config[status] || config.active} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5 capitalize`}>
+    <Badge className={`${config[s] ?? config.active} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5 capitalize`}>
       {status}
     </Badge>
   );
 };
 
-const RiskBadge = ({ risk }: { risk: string }) => {
+const TxStatusBadge = ({ status }: { status: string }) => {
+  const s = status.toLowerCase();
   const config: Record<string, string> = {
-    Low: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
-    Mid: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
-    High: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+    completed: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    success: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    pending: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
+    failed: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+    cancelled: "bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400",
   };
-
   return (
-    <Badge className={`${config[risk] || config.Low} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5`}>
-      {risk}
+    <Badge className={`${config[s] ?? config.pending} border-0 rounded-full text-[10px] font-semibold px-2 py-0.5 capitalize`}>
+      {status}
     </Badge>
   );
 };
 
-// Reusable user summary card shown inside dialogs
-const DialogUserSummary = () => (
-  <div className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px] p-3.5 space-y-3">
-    {/* User row */}
-    <div className="flex items-center gap-2.5">
-      <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-200/50 dark:ring-orange-500/30 flex-shrink-0">
-        <img
-          src={userData.profilePhoto}
-          alt={userData.name}
-          className="w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.style.display = "none"; }}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{userData.name}</p>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{userData.email}</p>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <KycBadge tier={userData.kycTier} />
-        <StatusBadge status={userData.status} />
-      </div>
-    </div>
-    {/* Transaction summary */}
-    <div className="space-y-1.5">
-      {[
-        { label: "Card:", value: userData.cardDetails.brand },
-        { label: "Card Code:", value: userData.cardDetails.cardCode },
-        { label: "Transaction ID:", value: "JPX-TRX-829503" },
-        { label: "Payout Amount:", value: userData.cardDetails.payoutAmount },
-      ].map(({ label, value }) => (
-        <div key={label} className="flex items-center justify-between">
-          <span className="text-[12px] text-gray-500 dark:text-gray-400">{label}</span>
-          <span className="text-[12px] font-semibold text-gray-900 dark:text-white font-mono">{value}</span>
-        </div>
-      ))}
-    </div>
-  </div>
-);
+// ── Main Component ────────────────────────────────────────────────────────────
 
 const UserDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
   const [newNote, setNewNote] = useState("");
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
-  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
-  const [emailMessage, setEmailMessage] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
+  const [actionDialog, setActionDialog] = useState<"freeze" | "ban" | "flag" | null>(null);
+  const [actionReason, setActionReason] = useState("");
+  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "kyc" | "flags">("overview");
 
-  // Request Info state
-  const [infoMessage, setInfoMessage] = useState("");
-  const [infoPush, setInfoPush] = useState(true);
-  const [infoEmail, setInfoEmail] = useState(false);
+  // ── Queries ─────────────────────────────────────────────────────────────────
 
-  // Hold for Review state
-  const [holdReason, setHoldReason] = useState("");
-  const [holdNote, setHoldNote] = useState("");
-  const [holdPush, setHoldPush] = useState(true);
-  const [holdEmail, setHoldEmail] = useState(false);
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["user-profile", id],
+    queryFn: () => api.get(`/admin/users/${id}/profile`).then((r) => r.data as UserProfile),
+    enabled: !!id,
+  });
 
-  const handleApprove = () => {
-    console.log("Approved with message:", emailMessage);
-    setApproveDialogOpen(false);
-  };
+  const { data: txData, isLoading: txLoading } = useQuery({
+    queryKey: ["user-transactions", id],
+    queryFn: () => api.get(`/admin/users/${id}/transactions`).then((r) => r.data),
+    enabled: !!id && activeTab === "transactions",
+  });
 
-  const handleReject = () => {
-    console.log("Rejected with message:", emailMessage);
-    setRejectDialogOpen(false);
-  };
+  const { data: flagsData, isLoading: flagsLoading } = useQuery({
+    queryKey: ["user-flags", id],
+    queryFn: () => api.get(`/admin/users/${id}/flags`).then((r) => r.data),
+    enabled: !!id && activeTab === "flags",
+  });
 
-  const handleRequestInfo = () => {
-    console.log("Request info sent:", infoMessage);
-    setRequestInfoDialogOpen(false);
-    setInfoMessage("");
-  };
+  const transactions: Transaction[] = txData?.items ?? [];
+  const flags: any[] = flagsData?.items ?? [];
 
-  const handleHold = () => {
-    console.log("Held for review:", holdReason, holdNote);
-    setHoldDialogOpen(false);
-    setHoldReason("");
-    setHoldNote("");
-  };
+  // ── Mutations ────────────────────────────────────────────────────────────────
 
-  const getRiskColor = (rating: number) => {
-    if (rating >= 70) return "text-orange-600 dark:text-orange-400";
-    if (rating >= 40) return "text-yellow-600 dark:text-yellow-400";
-    return "text-green-600 dark:text-green-400";
-  };
+  const freezeMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/admin/users/${id}/freeze`, { reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("Account frozen"); setActionDialog(null); setActionReason(""); },
+    onError: () => toast.error("Failed to freeze account"),
+  });
 
-  const getRiskGradient = (rating: number) => {
-    const percentage = rating;
-    const greenWidth = Math.min(percentage, 33);
-    const yellowWidth = Math.min(Math.max(percentage - 33, 0), 34);
-    const orangeWidth = Math.max(percentage - 67, 0);
-    
+  const banMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/admin/users/${id}/ban`, { reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User banned"); setActionDialog(null); setActionReason(""); },
+    onError: () => toast.error("Failed to ban user"),
+  });
+
+  const unbanMutation = useMutation({
+    mutationFn: () => api.post(`/admin/users/${id}/unban`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User unbanned"); },
+    onError: () => toast.error("Failed to unban user"),
+  });
+
+  const flagMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/admin/users/${id}/flag`, { reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User flagged"); setActionDialog(null); setActionReason(""); },
+    onError: () => toast.error("Failed to flag user"),
+  });
+
+  const unflagMutation = useMutation({
+    mutationFn: () => api.post(`/admin/users/${id}/unflag`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User unflagged"); },
+    onError: () => toast.error("Failed to unflag user"),
+  });
+
+  const isActionPending = freezeMutation.isPending || banMutation.isPending || flagMutation.isPending;
+
+  if (isLoading) {
     return (
-      <div className="flex h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-        <div className="bg-green-500" style={{ width: `${greenWidth}%` }} />
-        <div className="bg-yellow-500" style={{ width: `${yellowWidth}%` }} />
-        <div className="bg-orange-500" style={{ width: `${orangeWidth}%` }} />
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-9 h-9 rounded-full" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-80 rounded-[20px]" />
+          <div className="lg:col-span-2 space-y-3">
+            <Skeleton className="h-48 rounded-[20px]" />
+            <Skeleton className="h-48 rounded-[20px]" />
+          </div>
+        </div>
       </div>
     );
-  };
+  }
+
+  if (!profile) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <p className="text-[14px] font-semibold text-gray-900 dark:text-white">User not found</p>
+      <button onClick={() => navigate("/users")} className="text-[13px] text-orange-500 hover:underline">← Back to users</button>
+    </div>
+  );
+
+  const displayStatus = profile.is_flagged ? "Flagged" : profile.admin_status ?? (profile.is_active ? "Active" : "Inactive");
+  const initials = profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "transactions", label: "Transactions" },
+    { id: "kyc", label: "KYC" },
+    { id: "flags", label: "Flag History" },
+  ] as const;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fade-in">
+
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/users">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="h-10 w-10 rounded-full hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B]"
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/users")}
+            className="w-9 h-9 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border border-gray-200/50 dark:border-gray-700/30 flex items-center justify-center hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-colors shadow-sm"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{userData.name}</h1>
-          <p className="text-gray-600 dark:text-gray-400 text-[13px]">{userData.id}</p>
+            <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          </button>
+          <div>
+            <h1 className="text-[18px] font-bold text-gray-900 dark:text-white">{profile.full_name}</h1>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{profile.id.slice(0, 8).toUpperCase()}</p>
+          </div>
         </div>
-        <Link to="/users">
-          <Button
-            variant="outline"
-            className="h-10 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] gap-2 shadow-sm text-[13px] font-medium"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            View user profile
-          </Button>
-        </Link>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="outline"
-              className="h-10 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] gap-2 shadow-sm text-[13px] font-medium"
-            >
-              Actions
-              <ChevronDown className="w-4 h-4" />
-            </Button>
+            <button className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[13px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20">
+              Actions <ChevronDown className="w-3.5 h-3.5" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            align="end" 
-            className="w-48 bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2"
-          >
-            <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer">
-              <Key className="w-4 h-4 mr-2" />
-              Reset Password
+          <DropdownMenuContent align="end" className="w-48 bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2">
+            <DropdownMenuItem
+              onClick={() => profile.is_flagged ? unflagMutation.mutate() : setActionDialog("flag")}
+              className="rounded-[10px] text-[13px] cursor-pointer"
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              {profile.is_flagged ? "Unflag User" : "Flag User"}
             </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-[10px] text-[13px] cursor-pointer">
-              <Download className="w-4 h-4 mr-2" />
-              Export Data
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
-            <DropdownMenuItem className="text-orange-600 dark:text-orange-400 rounded-[10px] text-[13px] cursor-pointer">
-              <AlertTriangle className="w-4 h-4 mr-2" />
+            <DropdownMenuItem
+              onClick={() => setActionDialog("freeze")}
+              disabled={profile.admin_status?.toLowerCase() === "frozen"}
+              className="rounded-[10px] text-[13px] cursor-pointer text-orange-600 dark:text-orange-400"
+            >
+              <Snowflake className="w-4 h-4 mr-2" />
               Freeze Account
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600 dark:text-red-400 rounded-[10px] text-[13px] cursor-pointer">
-              <Ban className="w-4 h-4 mr-2" />
-              Ban Account
-            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
+            {profile.admin_status?.toLowerCase() === "banned" ? (
+              <DropdownMenuItem
+                onClick={() => unbanMutation.mutate()}
+                className="rounded-[10px] text-[13px] cursor-pointer text-green-600 dark:text-green-400"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" /> Unban User
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => setActionDialog("ban")}
+                className="rounded-[10px] text-[13px] cursor-pointer text-red-600 dark:text-red-400"
+              >
+                <Ban className="w-4 h-4 mr-2" /> Ban User
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Profile & Risk Assessment */}
-        <div className="space-y-6">
-          {/* Profile Card */}
-          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-orange-200/50 dark:ring-orange-500/30 mb-4">
-                <img 
-                  src={userData.profilePhoto} 
-                  alt={userData.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const parent = e.currentTarget.parentElement;
-                    if (parent) {
-                      parent.innerHTML = `
-                        <div class="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
-                          <span class="text-white text-2xl font-semibold">${userData.name.charAt(0)}</span>
-                        </div>
-                      `;
-                    }
-                  }}
-                />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{userData.name}</h2>
-              <p className="text-[13px] text-gray-600 dark:text-gray-400 mb-3">{userData.email}</p>
-              <div className="flex items-center gap-2">
-                <KycBadge tier={userData.kycTier} />
-                <StatusBadge status={userData.status} />
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              <div className="flex items-center gap-3 text-[13px]">
-                <Mail className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-900 dark:text-white truncate">{userData.email}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[13px]">
-                <Phone className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-900 dark:text-white">{userData.phone}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[13px]">
-                <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-600 dark:text-gray-400">Joined</span>
-                <span className="text-gray-900 dark:text-white ml-auto">{userData.joinDate}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[13px]">
-                <Clock className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-600 dark:text-gray-400">Last login</span>
-                <span className="text-gray-900 dark:text-white ml-auto">{userData.lastLogin}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[13px]">
-                <Smartphone className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-900 dark:text-white truncate">{userData.device} • {userData.os}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[13px]">
-                <MapPin className="w-4 h-4 text-gray-500 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-900 dark:text-white">{userData.location}</span>
-              </div>
+      {/* Profile Hero */}
+      <div className="bg-gradient-to-r from-orange-50 via-orange-50/40 to-transparent dark:from-orange-500/10 dark:via-orange-500/5 dark:to-transparent backdrop-blur-xl rounded-[20px] border border-orange-200/50 dark:border-orange-500/20 p-5">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20 flex-shrink-0">
+            <span className="text-white text-xl font-bold">{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[18px] font-bold text-gray-900 dark:text-white">{profile.full_name}</h2>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400">{profile.email}</p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <KycBadge tier={profile.tier} />
+              <StatusBadge status={displayStatus} />
+              {profile.admin_status_reason && (
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 italic">
+                  Reason: {profile.admin_status_reason}
+                </span>
+              )}
             </div>
           </div>
-
-          {/* Risk Assessment */}
-          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[18px] font-bold text-gray-900 dark:text-white">Risk Assessment</h3>
-              <span className="text-[11px] text-gray-500 dark:text-gray-500">Last updated: 2 mins ago</span>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="px-4 py-2.5 bg-white/60 dark:bg-[#2D2B2B]/60 rounded-[12px]">
+              <p className="text-[18px] font-bold text-gray-900 dark:text-white">{formatVolume(profile.volume_ngn)}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">Total Volume</p>
             </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-medium text-gray-600 dark:text-gray-400">Overall Risk Rating</span>
-                <Badge className="bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5">
-                  {userData.riskAssessment.overallRating}/100 Mid
-                </Badge>
-              </div>
-              {getRiskGradient(userData.riskAssessment.overallRating)}
+            <div className="px-4 py-2.5 bg-white/60 dark:bg-[#2D2B2B]/60 rounded-[12px]">
+              <p className="text-[18px] font-bold text-gray-900 dark:text-white">Tier {profile.tier}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">KYC Level</p>
             </div>
-
-            <div className="space-y-3">
-              {Object.entries(userData.riskAssessment).filter(([key]) => key !== 'overallRating').map(([key, data]) => (
-                <div key={key} className="flex items-center justify-between p-3 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px]">
-                  <div className="flex-1">
-                    <span className="text-[12px] text-gray-600 dark:text-gray-400 capitalize">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}:
-                    </span>
-                    <span className="text-[13px] font-medium text-gray-900 dark:text-white ml-2">
-                      {typeof data === 'object' ? data.value : data}
-                    </span>
-                  </div>
-                  {typeof data === 'object' && data.risk && <RiskBadge risk={data.risk} />}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Admin Notes */}
-          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
-            <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-4">Admin Notes:</h3>
-            
-            <div className="space-y-3 mb-4">
-              {userData.adminNotes.map((note, idx) => (
-                <div key={idx} className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[14px] p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[12px] font-semibold text-orange-600 dark:text-orange-400">
-                      By: {note.by}
-                    </span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-500">{note.date}</span>
-                  </div>
-                  <p className="text-[13px] text-gray-700 dark:text-gray-300">{note.note}</p>
-                </div>
-              ))}
-            </div>
-
-            <Textarea
-              placeholder="Add a note..."
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[14px] mb-3 text-[13px] min-h-[80px]"
-            />
-            <Button 
-              variant="outline"
-              size="sm"
-              className="w-full h-9 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/30 text-[13px]"
-            >
-              Save note
-            </Button>
-          </div>
-        </div>
-
-        {/* Right Column - Card Details */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-6 border border-gray-200/50 dark:border-gray-700/30 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
-            <h3 className="text-[20px] font-bold text-gray-900 dark:text-white mb-6">Card Details</h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Brand:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.brand}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Card Value:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.cardValue}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Card Code:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white font-mono">{userData.cardDetails.cardCode}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Applied Rate:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.appliedRate}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Payout Amount:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.payoutAmount}</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Submission Time:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.submissionTime}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Time Elapse:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.timeElapse}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Payment Method:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-gray-600 dark:text-gray-400">Status:</span>
-                  <span className="text-[13px] font-semibold text-gray-900 dark:text-white">{userData.cardDetails.status}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Uploaded Image */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[15px] font-semibold text-gray-900 dark:text-white">Uploaded Image</h4>
-                <Badge className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5">
-                  {userData.cardDetails.imageQuality}
-                </Badge>
-              </div>
-              
-              <div className="relative bg-orange-500 rounded-[16px] p-8 mb-3">
-                <img 
-                  src={userData.cardDetails.imageUrl} 
-                  alt="Card Preview" 
-                  className="w-full h-auto"
-                />
-              </div>
-
-              <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    className="w-full h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px] font-medium"
-                  >
-                    <ZoomIn className="w-4 h-4 mr-2" />
-                    Preview Image
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
-                  <DialogHeader>
-                    <DialogTitle className="text-[18px] font-bold">Card Image Preview</DialogTitle>
-                  </DialogHeader>
-                  <div className="bg-orange-500 rounded-[16px] p-12">
-                    <img 
-                      src={userData.cardDetails.imageUrl} 
-                      alt="Card Full Preview" 
-                      className="w-full h-auto"
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {/* Approve Dialog */}
-              <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="h-11 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/30 text-[13px]">
-                    <Check className="w-4 h-4 mr-2" />
-                    Approve
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
-                  <DialogHeader>
-                    <DialogTitle className="text-[18px] font-bold">Approve Transaction</DialogTitle>
-                    <DialogDescription className="text-[13px]">
-                      Send an approval email to the user confirming their transaction.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="subject" className="text-[13px] font-medium">Email Subject</Label>
-                      <Input
-                        id="subject"
-                        value={emailSubject}
-                        onChange={(e) => setEmailSubject(e.target.value)}
-                        placeholder="Transaction Approved - Amazon Gift Card"
-                        className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="message" className="text-[13px] font-medium">Email Message</Label>
-                      <Textarea
-                        id="message"
-                        value={emailMessage}
-                        onChange={(e) => setEmailMessage(e.target.value)}
-                        placeholder="Dear customer, your transaction has been approved and the payment of ₦150,000 has been credited to your wallet..."
-                        className="min-h-[120px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setApproveDialogOpen(false)}
-                      className="h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleApprove}
-                      className="h-10 rounded-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold hover:from-green-600 hover:to-green-700 border-0 shadow-lg text-[13px]"
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Send & Approve
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              {/* Reject Dialog */}
-              <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    className="h-11 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-[13px] font-semibold"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Reject
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[20px]">
-                  <DialogHeader>
-                    <DialogTitle className="text-[18px] font-bold">Reject Transaction</DialogTitle>
-                    <DialogDescription className="text-[13px]">
-                      Send a rejection email to the user explaining why their transaction was declined.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reject-subject" className="text-[13px] font-medium">Email Subject</Label>
-                      <Input
-                        id="reject-subject"
-                        value={emailSubject}
-                        onChange={(e) => setEmailSubject(e.target.value)}
-                        placeholder="Transaction Declined - Action Required"
-                        className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reject-message" className="text-[13px] font-medium">Email Message</Label>
-                      <Textarea
-                        id="reject-message"
-                        value={emailMessage}
-                        onChange={(e) => setEmailMessage(e.target.value)}
-                        placeholder="Dear customer, we regret to inform you that your transaction has been declined due to..."
-                        className="min-h-[120px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[13px]"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setRejectDialogOpen(false)}
-                      className="h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleReject}
-                      className="h-10 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold hover:from-red-600 hover:to-red-700 border-0 shadow-lg text-[13px]"
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Send & Reject
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Secondary Actions */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Request Info Dialog */}
-              <Dialog open={requestInfoDialogOpen} onOpenChange={setRequestInfoDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
-                  >
-                    <Info className="w-4 h-4 mr-2" />
-                    Request Info
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
-                      Request more information
-                    </DialogTitle>
-                    <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
-                      You are about to request more info from the user
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-4 py-2">
-                    {/* User + transaction summary */}
-                    <DialogUserSummary />
-
-                    {/* Message field */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Message to user</Label>
-                      <Textarea
-                        value={infoMessage}
-                        onChange={(e) => setInfoMessage(e.target.value)}
-                        placeholder="Describe the information you need from the user..."
-                        className="min-h-[100px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[12px] resize-none focus-visible:ring-0 focus:border-orange-300 dark:focus:border-orange-500/30"
-                      />
-                    </div>
-
-                    {/* Notification toggles */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Push notification</span>
-                        <Switch
-                          checked={infoPush}
-                          onCheckedChange={setInfoPush}
-                          className="data-[state=checked]:bg-green-500 scale-90"
-                        />
-                      </div>
-                      <span className="text-gray-300 dark:text-gray-600">|</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Email</span>
-                        <Switch
-                          checked={infoEmail}
-                          onCheckedChange={setInfoEmail}
-                          className="data-[state=checked]:bg-green-500 scale-90"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <DialogFooter>
-                    <Button
-                      onClick={handleRequestInfo}
-                      className="w-full h-10 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:from-orange-600 hover:to-orange-700 border-0 shadow-lg shadow-orange-500/20 text-[13px]"
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Send message
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              {/* Hold for Review Dialog */}
-              <Dialog open={holdDialogOpen} onOpenChange={setHoldDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    className="h-10 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] text-[13px] font-medium"
-                  >
-                    <Pause className="w-4 h-4 mr-2" />
-                    Hold for Review
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
-                      Hold for Review
-                    </DialogTitle>
-                    <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
-                      This transaction will be paused pending further review
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-4 py-2">
-                    {/* User + transaction summary */}
-                    <DialogUserSummary />
-
-                    {/* Hold reason selector */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">Reason for hold</Label>
-                      <div className="relative">
-                        <select
-                          value={holdReason}
-                          onChange={(e) => setHoldReason(e.target.value)}
-                          className="w-full appearance-none h-9 pl-3 pr-8 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-gray-200/50 dark:border-gray-700/30 rounded-[10px] text-[12px] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-orange-300 dark:focus:border-orange-500/30 cursor-pointer"
-                        >
-                          <option value="">Select a reason...</option>
-                          <option value="suspicious_activity">Suspicious Activity</option>
-                          <option value="verify_identity">Verify Identity</option>
-                          <option value="card_validation">Card Validation Required</option>
-                          <option value="high_risk">High Risk Score</option>
-                          <option value="manual_review">Manual Review Needed</option>
-                          <option value="other">Other</option>
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    {/* Internal note */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
-                        Internal note <span className="text-gray-400 font-normal">(optional)</span>
-                      </Label>
-                      <Textarea
-                        value={holdNote}
-                        onChange={(e) => setHoldNote(e.target.value)}
-                        placeholder="Add context for other admins reviewing this hold..."
-                        className="min-h-[90px] bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-gray-200/50 dark:border-gray-700/30 rounded-[12px] text-[12px] resize-none focus-visible:ring-0 focus:border-orange-300 dark:focus:border-orange-500/30"
-                      />
-                    </div>
-
-                    {/* Notify user toggles */}
-                    <div className="flex items-center gap-4">
-                      <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">Notify user via</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12px] text-gray-600 dark:text-gray-400">Push</span>
-                        <Switch
-                          checked={holdPush}
-                          onCheckedChange={setHoldPush}
-                          className="data-[state=checked]:bg-green-500 scale-90"
-                        />
-                      </div>
-                      <span className="text-gray-300 dark:text-gray-600">|</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12px] text-gray-600 dark:text-gray-400">Email</span>
-                        <Switch
-                          checked={holdEmail}
-                          onCheckedChange={setHoldEmail}
-                          className="data-[state=checked]:bg-green-500 scale-90"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <DialogFooter className="gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setHoldDialogOpen(false)}
-                      className="flex-1 h-10 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] border-0 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] text-[13px]"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleHold}
-                      disabled={!holdReason}
-                      className="flex-1 h-10 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white font-semibold hover:from-orange-500 hover:to-orange-600 border-0 shadow-lg shadow-orange-500/20 text-[13px] disabled:opacity-50"
-                    >
-                      <Pause className="w-4 h-4 mr-2" />
-                      Place on Hold
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+            <div className="px-4 py-2.5 bg-white/60 dark:bg-[#2D2B2B]/60 rounded-[12px]">
+              <p className="text-[18px] font-bold text-gray-900 dark:text-white">{profile.is_flagged ? "Yes" : "No"}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">Flagged</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-full border border-gray-200/50 dark:border-gray-700/30 p-1.5 w-fit shadow-sm">
+        {tabs.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              "rounded-full px-5 py-2 text-[12px] font-medium transition-all",
+              activeTab === id
+                ? "bg-gradient-to-br from-orange-300 to-orange-600 text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Left Sidebar — always visible */}
+        <div className="space-y-3">
+          {/* Info Card */}
+          <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-4 border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
+  <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Account Details</h3>
+  <div className="grid grid-cols-2 gap-2">
+    {[
+      { icon: Mail, label: "Email", value: profile.email },
+      { icon: Phone, label: "Phone", value: profile.phone ?? "—" },
+      { icon: Calendar, label: "Joined", value: formatDate(profile.joined_at) },
+      { icon: Clock, label: "Last Active", value: formatTime(profile.last_active_at) },
+      { icon: Clock, label: "Last Login", value: formatTime(profile.last_login_at) },
+      { icon: Smartphone, label: "Device", value: profile.last_login_device ?? "—" },
+      { icon: MapPin, label: "Last IP", value: profile.last_login_ip ?? "—" },
+    ].map(({ icon: Icon, label, value }) => (
+      <div key={label} className="flex items-start gap-2 px-2.5 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
+        <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">{label}</p>
+          <p className="text-[12px] font-medium text-gray-800 dark:text-gray-200 truncate">{value}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+          {/* Flag Info */}
+          {profile.is_flagged && profile.flag_reason && (
+            <div className="bg-orange-50/80 dark:bg-orange-500/10 backdrop-blur-xl rounded-[16px] p-4 border border-orange-200/50 dark:border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                <h3 className="text-[12px] font-bold text-orange-700 dark:text-orange-400">Flagged</h3>
+              </div>
+              <p className="text-[12px] text-orange-600 dark:text-orange-400">{profile.flag_reason}</p>
+            </div>
+          )}
+
+          {/* Ban Info */}
+          {profile.admin_status?.toLowerCase() === "banned" && profile.admin_status_reason && (
+            <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-xl rounded-[16px] p-4 border border-red-200/50 dark:border-red-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Ban className="w-4 h-4 text-red-600 dark:text-red-400" />
+                <h3 className="text-[12px] font-bold text-red-700 dark:text-red-400">Banned</h3>
+              </div>
+              <p className="text-[12px] text-red-600 dark:text-red-400">{profile.admin_status_reason}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right — tab-specific content */}
+        <div className="lg:col-span-2 space-y-3">
+
+          {/* Overview Tab */}
+          {activeTab === "overview" && (
+            <div className="space-y-3">
+              {/* Quick stats */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Total Volume", value: formatVolume(profile.volume_ngn), color: "orange" },
+                  { label: "Account Status", value: displayStatus, color: profile.is_active ? "green" : "red" },
+                  { label: "KYC Tier", value: `Tier ${profile.tier}`, color: "blue" },
+                  { label: "Flagged", value: profile.is_flagged ? "Yes" : "No", color: profile.is_flagged ? "orange" : "green" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+                    <p className="text-[16px] font-bold text-gray-900 dark:text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* KYC Summary */}
+              <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-4 h-4 text-gray-500" />
+                  <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">KYC Information</h3>
+                </div>
+                {profile.kyc ? (
+                  <pre className="text-[11px] text-gray-600 dark:text-gray-400 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px] p-3 overflow-x-auto">
+                    {JSON.stringify(profile.kyc, null, 2)}
+                  </pre>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 gap-2">
+                    <Shield className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                    <p className="text-[12px] font-semibold text-gray-500 dark:text-gray-400">No KYC submitted</p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">This user hasn't submitted KYC documents yet</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Admin Notes */}
+              <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Admin Notes</h3>
+                <Textarea
+                  placeholder="Add an internal note about this user..."
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[12px] min-h-[80px] resize-none mb-3"
+                />
+                <button
+                  disabled={!newNote.trim()}
+                  className="w-full py-2 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-50"
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Transactions Tab */}
+          {activeTab === "transactions" && (
+            <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-100/80 dark:border-gray-700/20 flex items-center justify-between">
+                <div>
+                  <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Transaction History</h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{txData?.total ?? 0} total transactions</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[400px]">
+                  <thead className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80">
+                    <tr>
+                      {["ID", "Type", "Amount", "Status", "Date"].map((h) => (
+                        <th key={h} className="p-3 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {txLoading ? (
+                      Array.from({ length: 4 }).map((_, i) => (
+                        <tr key={i} className="border-t border-gray-200/30 dark:border-gray-700/30">
+                          {[...Array(5)].map((_, j) => (
+                            <td key={j} className="p-3"><Skeleton className="h-3.5 w-20" /></td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-[12px] text-gray-400">No transactions yet</td>
+                      </tr>
+                    ) : (
+                      transactions.map((tx) => (
+                        <tr key={tx.id} className="border-t border-gray-200/30 dark:border-gray-700/30 hover:bg-[#F5F5F5]/50 dark:hover:bg-[#2D2B2B]/50 transition-colors">
+                          <td className="p-3 text-[11px] font-mono text-gray-500 dark:text-gray-400">{tx.id.slice(0, 8)}</td>
+                          <td className="p-3 text-[12px] text-gray-700 dark:text-gray-300">{tx.type ?? "—"}</td>
+                          <td className="p-3 text-[12px] font-semibold text-gray-900 dark:text-white">
+                            ₦{(tx.amount_ngn ?? 0).toLocaleString("en-NG")}
+                          </td>
+                          <td className="p-3"><TxStatusBadge status={tx.status} /></td>
+                          <td className="p-3 text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {formatDate(tx.created_at)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* KYC Tab */}
+          {activeTab === "kyc" && (
+            <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-4 h-4 text-gray-500" />
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">KYC Details</h3>
+                <KycBadge tier={profile.tier} />
+              </div>
+              {profile.kyc ? (
+                <div className="space-y-2">
+                  {Object.entries(profile.kyc).map(([key, value]) => (
+                    <div key={key} className="flex items-start justify-between gap-4 px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 capitalize">
+                        {key.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-[12px] font-medium text-gray-900 dark:text-white text-right">
+                        {String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700/30 flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-[13px] font-semibold text-gray-900 dark:text-white">No KYC data</p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500 text-center">
+                    This user is on Tier {profile.tier} and hasn't submitted KYC documents.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Flag History Tab */}
+          {activeTab === "flags" && (
+            <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-100/80 dark:border-gray-700/20">
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Flag History</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{flags.length} flag record{flags.length !== 1 ? "s" : ""}</p>
+              </div>
+              {flagsLoading ? (
+                <div className="p-4 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-[10px]" />)}
+                </div>
+              ) : flags.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-[13px] font-semibold text-gray-900 dark:text-white">No flag history</p>
+                  <p className="text-[11px] text-gray-400">This user has never been flagged</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100/80 dark:divide-gray-700/20">
+                  {flags.map((flag: any, i: number) => (
+                    <div key={i} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Flag className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{flag.reason ?? "No reason provided"}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                              By {flag.flagged_by ?? "Admin"} • {flag.created_at ? formatTime(flag.created_at) : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge className={`text-[10px] px-2 py-0.5 rounded-full border-0 flex-shrink-0 ${flag.resolved ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400" : "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400"}`}>
+                          {flag.resolved ? "Resolved" : "Active"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Dialog */}
+      <Dialog open={!!actionDialog} onOpenChange={() => { setActionDialog(null); setActionReason(""); }}>
+        <DialogContent className="bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+              {actionDialog === "flag" && "Flag User"}
+              {actionDialog === "freeze" && "Freeze Account"}
+              {actionDialog === "ban" && "Ban User"}
+            </DialogTitle>
+            <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
+              {actionDialog === "flag" && <>Flagging <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span> for review.</>}
+              {actionDialog === "freeze" && <>Temporarily freeze <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span>'s account.</>}
+              {actionDialog === "ban" && <>Permanently ban <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span>. They will lose all access.</>}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <textarea
+              value={actionReason}
+              onChange={(e) => setActionReason(e.target.value)}
+              placeholder={
+                actionDialog === "flag" ? "e.g. Suspicious activity..." :
+                actionDialog === "freeze" ? "e.g. Under investigation..." :
+                "e.g. Repeated policy violations..."
+              }
+              rows={3}
+              className="w-full px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none resize-none transition-all"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              onClick={() => { setActionDialog(null); setActionReason(""); }}
+              className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (!actionReason.trim()) return;
+                if (actionDialog === "flag") flagMutation.mutate(actionReason.trim());
+                else if (actionDialog === "freeze") freezeMutation.mutate(actionReason.trim());
+                else if (actionDialog === "ban") banMutation.mutate(actionReason.trim());
+              }}
+              disabled={isActionPending || !actionReason.trim()}
+              className={cn(
+                "flex-1 py-2 rounded-full text-[12px] font-semibold transition-all shadow-md disabled:opacity-60",
+                actionDialog === "ban"
+                  ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/20"
+                  : "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-orange-500/20"
+              )}
+            >
+              {isActionPending ? "Processing…"
+                : actionDialog === "flag" ? "Flag User"
+                : actionDialog === "freeze" ? "Freeze Account"
+                : "Ban User"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -37,8 +37,10 @@ const Breadcrumbs = () => {
         const last = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join("/")}`;
         
-        const name = value.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const name = isUUID
+  ? `${value.slice(0, 8)}…`
+  : value.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
         return (
           <div key={to} className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">/</span>
