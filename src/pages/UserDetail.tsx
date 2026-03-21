@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogDescription,
@@ -14,9 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, Mail, Phone, Calendar, Smartphone, Clock,
-  ChevronDown, AlertTriangle, Ban, Key, Download,
-  Check, X, Info, Pause, Send, Shield, MapPin,
-  Snowflake, CheckCircle, Flag, FileText,
+  ChevronDown, AlertTriangle, Ban, Shield, MapPin,
+  Snowflake, CheckCircle, Flag, Flame,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -52,6 +50,8 @@ interface Transaction {
   status: string;
   created_at: string;
 }
+
+type ActionType = "flag" | "unflag" | "freeze" | "unfreeze" | "ban" | "unban";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,14 +91,15 @@ const KycBadge = ({ tier }: { tier: number }) => {
 const StatusBadge = ({ status }: { status: string }) => {
   const s = status.toLowerCase();
   const config: Record<string, string> = {
-    active: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
-    frozen: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400",
-    banned: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+    active:    "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    frozen:    "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400",
+    banned:    "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
     suspended: "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
-    flagged: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
+    flagged:   "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
+    inactive:  "bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400",
   };
   return (
-    <Badge className={`${config[s] ?? config.active} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5 capitalize`}>
+    <Badge className={`${config[s] ?? config.inactive} border-0 rounded-full text-[11px] font-semibold px-2.5 py-0.5 capitalize`}>
       {status}
     </Badge>
   );
@@ -108,9 +109,9 @@ const TxStatusBadge = ({ status }: { status: string }) => {
   const s = status.toLowerCase();
   const config: Record<string, string> = {
     completed: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
-    success: "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
-    pending: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
-    failed: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
+    success:   "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+    pending:   "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400",
+    failed:    "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400",
     cancelled: "bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400",
   };
   return (
@@ -120,6 +121,66 @@ const TxStatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// ── Dialog config (same pattern as UserTable) ─────────────────────────────────
+
+const DIALOG_CONFIG: Record<ActionType, {
+  title: string;
+  description: (name: string) => React.ReactNode;
+  placeholder: string;
+  confirmLabel: string;
+  confirmClass: string;
+  requiresReason: boolean;
+}> = {
+  flag: {
+    title: "Flag User",
+    description: (name) => <>Flagging <span className="font-semibold text-gray-900 dark:text-white">{name}</span> for review.</>,
+    placeholder: "e.g. Suspicious activity, multiple failed transactions...",
+    confirmLabel: "Flag User",
+    confirmClass: "bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 shadow-orange-500/20",
+    requiresReason: true,
+  },
+  unflag: {
+    title: "Unflag User",
+    description: (name) => <>Remove flag from <span className="font-semibold text-gray-900 dark:text-white">{name}</span>.</>,
+    placeholder: "e.g. Issue resolved, false positive...",
+    confirmLabel: "Unflag User",
+    confirmClass: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-green-500/20",
+    requiresReason: false,
+  },
+  freeze: {
+    title: "Freeze Account",
+    description: (name) => <>Temporarily freeze <span className="font-semibold text-gray-900 dark:text-white">{name}</span>'s account.</>,
+    placeholder: "e.g. Under investigation, pending review...",
+    confirmLabel: "Freeze Account",
+    confirmClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-500/20",
+    requiresReason: true,
+  },
+  unfreeze: {
+    title: "Unfreeze Account",
+    description: (name) => <>Restore access for <span className="font-semibold text-gray-900 dark:text-white">{name}</span>.</>,
+    placeholder: "e.g. Investigation complete, cleared...",
+    confirmLabel: "Unfreeze Account",
+    confirmClass: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-green-500/20",
+    requiresReason: false,
+  },
+  ban: {
+    title: "Ban User",
+    description: (name) => <>Permanently ban <span className="font-semibold text-gray-900 dark:text-white">{name}</span>. They will lose all access.</>,
+    placeholder: "e.g. Repeated policy violations, fraudulent activity...",
+    confirmLabel: "Ban User",
+    confirmClass: "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-red-500/20",
+    requiresReason: true,
+  },
+  unban: {
+    title: "Unban User",
+    description: (name) => <>Restore access for <span className="font-semibold text-gray-900 dark:text-white">{name}</span>. They will regain platform access.</>,
+    placeholder: "e.g. Appeal approved, ban lifted...",
+    confirmLabel: "Unban User",
+    confirmClass: "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-green-500/20",
+    requiresReason: false,
+  },
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const UserDetail = () => {
@@ -127,12 +188,12 @@ const UserDetail = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [newNote, setNewNote] = useState("");
-  const [actionDialog, setActionDialog] = useState<"freeze" | "ban" | "flag" | null>(null);
+  const [newNote,      setNewNote]      = useState("");
+  const [actionDialog, setActionDialog] = useState<ActionType | null>(null);
   const [actionReason, setActionReason] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "kyc" | "flags">("overview");
+  const [activeTab,    setActiveTab]    = useState<"overview" | "transactions" | "kyc" | "flags">("overview");
 
-  // ── Queries ─────────────────────────────────────────────────────────────────
+  // ── Queries ──────────────────────────────────────────────────────────────────
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user-profile", id],
@@ -153,41 +214,77 @@ const UserDetail = () => {
   });
 
   const transactions: Transaction[] = txData?.items ?? [];
-  const flags: any[] = flagsData?.items ?? [];
+  const flags: any[] = flagsData?.items ?? flagsData ?? [];
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
-  const freezeMutation = useMutation({
-    mutationFn: (reason: string) => api.post(`/admin/users/${id}/freeze`, { reason }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("Account frozen"); setActionDialog(null); setActionReason(""); },
-    onError: () => toast.error("Failed to freeze account"),
-  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["user-profile", id] });
 
-  const banMutation = useMutation({
-    mutationFn: (reason: string) => api.post(`/admin/users/${id}/ban`, { reason }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User banned"); setActionDialog(null); setActionReason(""); },
-    onError: () => toast.error("Failed to ban user"),
-  });
-
-  const unbanMutation = useMutation({
-    mutationFn: () => api.post(`/admin/users/${id}/unban`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User unbanned"); },
-    onError: () => toast.error("Failed to unban user"),
-  });
+  const closeDialog = () => { setActionDialog(null); setActionReason(""); };
 
   const flagMutation = useMutation({
     mutationFn: (reason: string) => api.post(`/admin/users/${id}/flag`, { reason }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User flagged"); setActionDialog(null); setActionReason(""); },
-    onError: () => toast.error("Failed to flag user"),
+    onSuccess: () => { invalidate(); toast.success("User flagged"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to flag user"),
   });
 
+  // POST /admin/users/{user_id}/unflag — send reason if provided
   const unflagMutation = useMutation({
-    mutationFn: () => api.post(`/admin/users/${id}/unflag`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user-profile", id] }); toast.success("User unflagged"); },
-    onError: () => toast.error("Failed to unflag user"),
+    mutationFn: (reason?: string) => api.post(`/admin/users/${id}/unflag`, reason ? { reason } : {}),
+    onSuccess: () => { invalidate(); toast.success("User unflagged"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to unflag user"),
   });
 
-  const isActionPending = freezeMutation.isPending || banMutation.isPending || flagMutation.isPending;
+  // POST /admin/users/{user_id}/freeze
+  const freezeMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/admin/users/${id}/freeze`, { reason }),
+    onSuccess: () => { invalidate(); toast.success("Account frozen"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to freeze account"),
+  });
+
+  // POST /admin/users/{user_id}/unfreeze — was MISSING
+  const unfreezeMutation = useMutation({
+    mutationFn: (reason?: string) => api.post(`/admin/users/${id}/unfreeze`, reason ? { reason } : {}),
+    onSuccess: () => { invalidate(); toast.success("Account unfrozen"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to unfreeze account"),
+  });
+
+  // POST /admin/users/{user_id}/ban
+  const banMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/admin/users/${id}/ban`, { reason }),
+    onSuccess: () => { invalidate(); toast.success("User banned"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to ban user"),
+  });
+
+  // POST /admin/users/{user_id}/unban — now sends body
+  const unbanMutation = useMutation({
+    mutationFn: (reason?: string) => api.post(`/admin/users/${id}/unban`, reason ? { reason } : {}),
+    onSuccess: () => { invalidate(); toast.success("User unbanned"); closeDialog(); },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to unban user"),
+  });
+
+  const isActionPending =
+    flagMutation.isPending   || unflagMutation.isPending   ||
+    freezeMutation.isPending || unfreezeMutation.isPending ||
+    banMutation.isPending    || unbanMutation.isPending;
+
+  const handleConfirm = () => {
+    if (!actionDialog) return;
+    const reason = actionReason.trim() || undefined;
+    const cfg = DIALOG_CONFIG[actionDialog];
+    if (cfg.requiresReason && !reason) return;
+
+    switch (actionDialog) {
+      case "flag":     flagMutation.mutate(reason!); break;
+      case "unflag":   unflagMutation.mutate(reason); break;
+      case "freeze":   freezeMutation.mutate(reason!); break;
+      case "unfreeze": unfreezeMutation.mutate(reason); break;
+      case "ban":      banMutation.mutate(reason!); break;
+      case "unban":    unbanMutation.mutate(reason); break;
+    }
+  };
+
+  // ── Loading / error states ────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -217,15 +314,21 @@ const UserDetail = () => {
     </div>
   );
 
+  // Derive clean status from profile — normalise to lowercase for comparisons
+  const rawStatus   = (profile.admin_status ?? (profile.is_active ? "active" : "inactive")).toLowerCase();
+  const isFrozen    = rawStatus === "frozen";
+  const isBanned    = rawStatus === "banned";
   const displayStatus = profile.is_flagged ? "Flagged" : profile.admin_status ?? (profile.is_active ? "Active" : "Inactive");
-  const initials = profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  const initials    = profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "transactions", label: "Transactions" },
-    { id: "kyc", label: "KYC" },
-    { id: "flags", label: "Flag History" },
+    { id: "overview",      label: "Overview"      },
+    { id: "transactions",  label: "Transactions"  },
+    { id: "kyc",           label: "KYC"           },
+    { id: "flags",         label: "Flag History"  },
   ] as const;
+
+  const cfg = actionDialog ? DIALOG_CONFIG[actionDialog] : null;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -245,44 +348,58 @@ const UserDetail = () => {
           </div>
         </div>
 
+        {/* Actions dropdown — all 6 actions with proper toggles */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[13px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20">
               Actions <ChevronDown className="w-3.5 h-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2">
+          <DropdownMenuContent align="end" className="w-52 bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2">
+
+            {/* Flag / Unflag */}
             <DropdownMenuItem
-              onClick={() => profile.is_flagged ? unflagMutation.mutate() : setActionDialog("flag")}
+              onClick={() => setActionDialog(profile.is_flagged ? "unflag" : "flag")}
               className="rounded-[10px] text-[13px] cursor-pointer"
             >
               <Flag className="w-4 h-4 mr-2" />
               {profile.is_flagged ? "Unflag User" : "Flag User"}
             </DropdownMenuItem>
+
+            {/* Freeze / Unfreeze — now properly toggles */}
             <DropdownMenuItem
-              onClick={() => setActionDialog("freeze")}
-              disabled={profile.admin_status?.toLowerCase() === "frozen"}
-              className="rounded-[10px] text-[13px] cursor-pointer text-orange-600 dark:text-orange-400"
+              onClick={() => setActionDialog(isFrozen ? "unfreeze" : "freeze")}
+              disabled={isBanned}
+              className={cn(
+                "rounded-[10px] text-[13px] cursor-pointer",
+                isFrozen
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-blue-600 dark:text-blue-400"
+              )}
             >
-              <Snowflake className="w-4 h-4 mr-2" />
-              Freeze Account
+              {isFrozen
+                ? <><Flame className="w-4 h-4 mr-2" />Unfreeze Account</>
+                : <><Snowflake className="w-4 h-4 mr-2" />Freeze Account</>
+              }
             </DropdownMenuItem>
+
             <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
-            {profile.admin_status?.toLowerCase() === "banned" ? (
-              <DropdownMenuItem
-                onClick={() => unbanMutation.mutate()}
-                className="rounded-[10px] text-[13px] cursor-pointer text-green-600 dark:text-green-400"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" /> Unban User
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                onClick={() => setActionDialog("ban")}
-                className="rounded-[10px] text-[13px] cursor-pointer text-red-600 dark:text-red-400"
-              >
-                <Ban className="w-4 h-4 mr-2" /> Ban User
-              </DropdownMenuItem>
-            )}
+
+            {/* Ban / Unban — properly toggles */}
+            <DropdownMenuItem
+              onClick={() => setActionDialog(isBanned ? "unban" : "ban")}
+              className={cn(
+                "rounded-[10px] text-[13px] cursor-pointer",
+                isBanned
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              )}
+            >
+              {isBanned
+                ? <><CheckCircle className="w-4 h-4 mr-2" />Unban User</>
+                : <><Ban className="w-4 h-4 mr-2" />Ban User</>
+              }
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -344,33 +461,32 @@ const UserDetail = () => {
       {/* Tab Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* Left Sidebar — always visible */}
+        {/* Left Sidebar */}
         <div className="space-y-3">
-          {/* Info Card */}
           <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[20px] p-4 border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
-  <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Account Details</h3>
-  <div className="grid grid-cols-2 gap-2">
-    {[
-      { icon: Mail, label: "Email", value: profile.email },
-      { icon: Phone, label: "Phone", value: profile.phone ?? "—" },
-      { icon: Calendar, label: "Joined", value: formatDate(profile.joined_at) },
-      { icon: Clock, label: "Last Active", value: formatTime(profile.last_active_at) },
-      { icon: Clock, label: "Last Login", value: formatTime(profile.last_login_at) },
-      { icon: Smartphone, label: "Device", value: profile.last_login_device ?? "—" },
-      { icon: MapPin, label: "Last IP", value: profile.last_login_ip ?? "—" },
-    ].map(({ icon: Icon, label, value }) => (
-      <div key={label} className="flex items-start gap-2 px-2.5 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
-        <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-gray-400 dark:text-gray-500">{label}</p>
-          <p className="text-[12px] font-medium text-gray-800 dark:text-gray-200 truncate">{value}</p>
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
+            <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Account Details</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: Mail,       label: "Email",       value: profile.email                   },
+                { icon: Phone,      label: "Phone",       value: profile.phone ?? "—"            },
+                { icon: Calendar,   label: "Joined",      value: formatDate(profile.joined_at)   },
+                { icon: Clock,      label: "Last Active", value: formatTime(profile.last_active_at) },
+                { icon: Clock,      label: "Last Login",  value: formatTime(profile.last_login_at) },
+                { icon: Smartphone, label: "Device",      value: profile.last_login_device ?? "—" },
+                { icon: MapPin,     label: "Last IP",     value: profile.last_login_ip ?? "—"   },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-start gap-2 px-2.5 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
+                  <Icon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{label}</p>
+                    <p className="text-[12px] font-medium text-gray-800 dark:text-gray-200 truncate">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {/* Flag Info */}
+          {/* Flag info banner */}
           {profile.is_flagged && profile.flag_reason && (
             <div className="bg-orange-50/80 dark:bg-orange-500/10 backdrop-blur-xl rounded-[16px] p-4 border border-orange-200/50 dark:border-orange-500/20">
               <div className="flex items-center gap-2 mb-2">
@@ -381,8 +497,19 @@ const UserDetail = () => {
             </div>
           )}
 
-          {/* Ban Info */}
-          {profile.admin_status?.toLowerCase() === "banned" && profile.admin_status_reason && (
+          {/* Frozen info banner */}
+          {isFrozen && profile.admin_status_reason && (
+            <div className="bg-blue-50/80 dark:bg-blue-500/10 backdrop-blur-xl rounded-[16px] p-4 border border-blue-200/50 dark:border-blue-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Snowflake className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-[12px] font-bold text-blue-700 dark:text-blue-400">Frozen</h3>
+              </div>
+              <p className="text-[12px] text-blue-600 dark:text-blue-400">{profile.admin_status_reason}</p>
+            </div>
+          )}
+
+          {/* Ban info banner */}
+          {isBanned && profile.admin_status_reason && (
             <div className="bg-red-50/80 dark:bg-red-500/10 backdrop-blur-xl rounded-[16px] p-4 border border-red-200/50 dark:border-red-500/20">
               <div className="flex items-center gap-2 mb-2">
                 <Ban className="w-4 h-4 text-red-600 dark:text-red-400" />
@@ -399,14 +526,13 @@ const UserDetail = () => {
           {/* Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-3">
-              {/* Quick stats */}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Total Volume", value: formatVolume(profile.volume_ngn), color: "orange" },
-                  { label: "Account Status", value: displayStatus, color: profile.is_active ? "green" : "red" },
-                  { label: "KYC Tier", value: `Tier ${profile.tier}`, color: "blue" },
-                  { label: "Flagged", value: profile.is_flagged ? "Yes" : "No", color: profile.is_flagged ? "orange" : "green" },
-                ].map(({ label, value, color }) => (
+                  { label: "Total Volume",    value: formatVolume(profile.volume_ngn) },
+                  { label: "Account Status",  value: displayStatus                   },
+                  { label: "KYC Tier",        value: `Tier ${profile.tier}`          },
+                  { label: "Flagged",         value: profile.is_flagged ? "Yes" : "No" },
+                ].map(({ label, value }) => (
                   <div key={label} className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">{label}</p>
                     <p className="text-[16px] font-bold text-gray-900 dark:text-white">{value}</p>
@@ -414,7 +540,7 @@ const UserDetail = () => {
                 ))}
               </div>
 
-              {/* KYC Summary */}
+              {/* KYC summary */}
               <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Shield className="w-4 h-4 text-gray-500" />
@@ -570,7 +696,7 @@ const UserDetail = () => {
                           <div>
                             <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{flag.reason ?? "No reason provided"}</p>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                              By {flag.flagged_by ?? "Admin"} • {flag.created_at ? formatTime(flag.created_at) : "—"}
+                              By {flag.flagged_by ?? "Admin"} · {flag.created_at ? formatTime(flag.created_at) : "—"}
                             </p>
                           </div>
                         </div>
@@ -587,62 +713,51 @@ const UserDetail = () => {
         </div>
       </div>
 
-      {/* Action Dialog */}
-      <Dialog open={!!actionDialog} onOpenChange={() => { setActionDialog(null); setActionReason(""); }}>
+      {/* Unified Action Dialog */}
+      <Dialog open={!!actionDialog} onOpenChange={closeDialog}>
         <DialogContent className="bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm mx-4">
-          <DialogHeader>
-            <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
-              {actionDialog === "flag" && "Flag User"}
-              {actionDialog === "freeze" && "Freeze Account"}
-              {actionDialog === "ban" && "Ban User"}
-            </DialogTitle>
-            <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
-              {actionDialog === "flag" && <>Flagging <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span> for review.</>}
-              {actionDialog === "freeze" && <>Temporarily freeze <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span>'s account.</>}
-              {actionDialog === "ban" && <>Permanently ban <span className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</span>. They will lose all access.</>}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
-            <textarea
-              value={actionReason}
-              onChange={(e) => setActionReason(e.target.value)}
-              placeholder={
-                actionDialog === "flag" ? "e.g. Suspicious activity..." :
-                actionDialog === "freeze" ? "e.g. Under investigation..." :
-                "e.g. Repeated policy violations..."
-              }
-              rows={3}
-              className="w-full px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none resize-none transition-all"
-            />
-          </div>
-          <DialogFooter className="gap-2">
-            <button
-              onClick={() => { setActionDialog(null); setActionReason(""); }}
-              className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                if (!actionReason.trim()) return;
-                if (actionDialog === "flag") flagMutation.mutate(actionReason.trim());
-                else if (actionDialog === "freeze") freezeMutation.mutate(actionReason.trim());
-                else if (actionDialog === "ban") banMutation.mutate(actionReason.trim());
-              }}
-              disabled={isActionPending || !actionReason.trim()}
-              className={cn(
-                "flex-1 py-2 rounded-full text-[12px] font-semibold transition-all shadow-md disabled:opacity-60",
-                actionDialog === "ban"
-                  ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/20"
-                  : "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-orange-500/20"
-              )}
-            >
-              {isActionPending ? "Processing…"
-                : actionDialog === "flag" ? "Flag User"
-                : actionDialog === "freeze" ? "Freeze Account"
-                : "Ban User"}
-            </button>
-          </DialogFooter>
+          {cfg && actionDialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
+                  {cfg.title}
+                </DialogTitle>
+                <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
+                  {cfg.description(profile.full_name)}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-2">
+                <textarea
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder={cfg.placeholder}
+                  rows={3}
+                  className="w-full px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none resize-none transition-all"
+                />
+                {cfg.requiresReason && !actionReason.trim() && (
+                  <p className="text-[11px] text-orange-500 mt-1.5 ml-1">A reason is required for this action.</p>
+                )}
+              </div>
+              <DialogFooter className="gap-2">
+                <button
+                  onClick={closeDialog}
+                  className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={isActionPending || (cfg.requiresReason && !actionReason.trim())}
+                  className={cn(
+                    "flex-1 py-2 rounded-full text-[12px] font-semibold text-white transition-all shadow-md disabled:opacity-60",
+                    cfg.confirmClass
+                  )}
+                >
+                  {isActionPending ? "Processing…" : cfg.confirmLabel}
+                </button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

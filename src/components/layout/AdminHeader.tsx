@@ -173,11 +173,11 @@ export const AdminHeader = () => {
           <ThemeToggle />
           <NotificationsDropdown />
 
-          <Link to="/settings">
+          {/* <Link to="/settings">
             <div className="w-7 h-7 rounded-full bg-white/60 dark:bg-[#3A3737] flex items-center justify-center transition-all duration-300">
               <Settings className="w-[15px] h-[15px] text-gray-700 dark:text-gray-300" />
             </div>
-          </Link>
+          </Link> */}
 
           <div className="ml-1.5 bg-gradient-to-r from-[#FFE6B0]/30 via-[#FFD98A]/20 to-transparent dark:from-[#E7E7E7]/5 dark:to-[#E7E7E7]/5 pl-3 pr-1.5 py-1 rounded-full backdrop-blur-sm border border-orange-200/30 dark:border-orange-500/20">
             <DropdownMenu>

@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Shield, UserCog, Lock, MoreHorizontal, Search, Plus,
   Clock, Calendar, ChevronLeft, ChevronRight, Eye, ArrowLeft,
-  Mail, Phone, MapPin, Monitor, Activity, AlertTriangle, X,
+  Mail, Activity, AlertTriangle, CheckCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,33 +18,41 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "@/api/axiosInstance";
-import { getAvatarUrl } from "@/lib/utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AdminUser {
   id: string;
   full_name: string;
   email: string;
-  phone: string | null;
-  role: string;        // ← doesn't exist on app users, will be undefined
-  is_active: boolean;  // ← doesn't exist, status is "Active"/"Banned" string
-  avatar_url: string | null;
-  last_login_at: string | null;
+  role: string;
+  is_active: boolean;
+  last_active: string | null;
   created_at: string;
-  updated_at: string;
-  // App user fields
-  status?: string;
-  joined_at?: string;
-  last_active_at?: string | null;
-  tier?: number;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+interface AdminStats {
+  total_admins: number;
+  active_admins: number;
+  suspended_admins: number;
+  active_sessions: number;
+}
+
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  admin_name: string;
+  admin_email: string;
+  role: string;
+  action: string;
+  target: string;
+  details: any;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatTime = (d: string | null) => {
   if (!d) return "Never";
@@ -58,16 +65,16 @@ const formatTime = (d: string | null) => {
 };
 
 const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  new Date(d).toLocaleDateString("en-NG", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 
 const roleLabel = (role?: string) => {
-  if (!role) return "Admin";
   const map: Record<string, string> = {
-    superadmin: "Super Admin",
-    admin: "Admin",
-    staff: "Staff",
+    superadmin: "Super Admin", admin: "Admin", staff: "Staff",
   };
-  return map[role] ?? role.charAt(0).toUpperCase() + role.slice(1);
+  return map[role ?? ""] ?? (role ? role.charAt(0).toUpperCase() + role.slice(1) : "Admin");
 };
 
 const roleColor = (role?: string) => {
@@ -84,144 +91,158 @@ const statusColor = (isActive: boolean) =>
     ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200/60 dark:border-green-500/20"
     : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-500/20";
 
+const actionColor = (action: string) => {
+  if (action.includes("suspend") || action.includes("flag"))
+    return "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400";
+  if (action.includes("create") || action.includes("resume"))
+    return "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400";
+  if (action.includes("login"))
+    return "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400";
+  if (action.includes("delete") || action.includes("remove"))
+    return "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400";
+  return "bg-gray-100 dark:bg-gray-700/30 text-gray-600 dark:text-gray-400";
+};
+
+const actionLabel = (action: string) => {
+  const map: Record<string, string> = {
+    "admin.users.create": "Created Admin",
+    "admin.login.token": "Login",
+    "admin.platform_users.flag": "Flagged User",
+    "admin.platform_users.unflag": "Unflagged User",
+    "admin.platform_users.update_status": "Updated Status",
+    "admin.users.update": "Updated Admin",
+    "admin.users.disable": "Disabled Admin",
+    "admin.features.resume": "Resumed Feature",
+    "admin.features.suspend": "Suspended Feature",
+    "admin.platform_notifications.create": "Created Notification",
+    "admin.platform_notifications.dispatch": "Dispatched Notification",
+    "support.ticket.close": "Closed Ticket",
+    "support.ticket.resolve": "Resolved Ticket",
+    "support.ticket.reply": "Replied to Ticket",
+    "support.ticket.assign": "Assigned Ticket",
+  };
+  return map[action] ?? action.split(".").pop()?.replace(/_/g, " ") ?? action;
+};
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
 const Avatar = ({ admin, size = "md" }: { admin: AdminUser; size?: "sm" | "md" | "lg" }) => {
   const dim = size === "sm" ? "w-8 h-8" : size === "lg" ? "w-16 h-16" : "w-10 h-10";
   const text = size === "sm" ? "text-[10px]" : size === "lg" ? "text-xl" : "text-[13px]";
-  const initials = admin.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  const url = getAvatarUrl(admin.avatar_url);
+  const initials = (admin.full_name || "?").split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <div className={`${dim} rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-sm`}>
-      {url
-        ? <img src={url} alt={admin.full_name} className="w-full h-full object-cover" />
-        : <span className={`text-white font-semibold ${text}`}>{initials}</span>
-      }
+      <span className={`text-white font-semibold ${text}`}>{initials}</span>
     </div>
   );
 };
 
-// ── Admin Detail View ─────────────────────────────────────────────────────────
+// ─── Admin Detail ─────────────────────────────────────────────────────────────
 
-const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }) => {
-  const AdminActivityLog = () => {
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-logs"],
-    queryFn: () => api.get("/admin/admin-logs").then((r) => r.data),
-  });
-
-  const logs = data?.items ?? [];
-
-  const actionColor = (action: string) => {
-    if (action.includes("flag")) return "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400";
-    if (action.includes("create")) return "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400";
-    if (action.includes("login")) return "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400";
-    if (action.includes("status")) return "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400";
-    if (action.includes("unflag")) return "bg-gray-100 dark:bg-gray-700/30 text-gray-600 dark:text-gray-400";
-    return "bg-gray-100 dark:bg-gray-700/30 text-gray-600 dark:text-gray-400";
-  };
-
-  const actionLabel = (action: string) => {
-    const map: Record<string, string> = {
-      "admin.users.create": "Created Admin",
-      "admin.login.token": "Login",
-      "admin.platform_users.flag": "Flagged User",
-      "admin.platform_users.unflag": "Unflagged User",
-      "admin.platform_users.update_status": "Updated Status",
-      "admin.users.update": "Updated Admin",
-      "admin.users.disable": "Disabled Admin",
-    };
-    return map[action] ?? action.split(".").pop()?.replace(/_/g, " ") ?? action;
-  };
-
-  const formatLogTime = (d: string) =>
-    new Date(d).toLocaleDateString("en-NG", {
-      day: "numeric", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-
-  return (
-    <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100/80 dark:border-gray-700/20">
-        <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Admin Logs</h3>
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Recent admin activity across the platform</p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px]">
-          <thead className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80">
-            <tr>
-              {["Timestamp", "Action", "Resource", "Details"].map((h) => (
-                <th key={h} className="p-3 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i} className="border-t border-gray-200/30 dark:border-gray-700/30">
-                  {[...Array(4)].map((_, j) => (
-                    <td key={j} className="p-3"><Skeleton className="h-3.5 w-24" /></td>
-                  ))}
-                </tr>
-              ))
-            ) : logs.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="p-8 text-center text-[12px] text-gray-400">No activity logs yet</td>
-              </tr>
-            ) : (
-              logs.map((log: any) => (
-                <tr key={log.id} className="border-t border-gray-200/30 dark:border-gray-700/30 hover:bg-[#F5F5F5]/50 dark:hover:bg-[#2D2B2B]/50 transition-colors">
-                  <td className="p-3 text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {formatLogTime(log.created_at)}
-                  </td>
-                  <td className="p-3">
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${actionColor(log.action)}`}>
-                      {actionLabel(log.action)}
-                    </span>
-                  </td>
-                  <td className="p-3 text-[11px] text-gray-600 dark:text-gray-400">
-                    {log.resource_type ?? "—"}
-                  </td>
-                  <td className="p-3 text-[11px] text-gray-500 dark:text-gray-400 max-w-[200px] truncate">
-                    {log.details ? JSON.stringify(log.details).replace(/[{}"]/g, "").replace(/:/g, ": ") : log.message ?? "—"}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
+const AdminDetail = ({ adminId, onBack }: { adminId: string; onBack: () => void }) => {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"general" | "security" | "activity">("general");
-  const [selectedRole, setSelectedRole] = useState(admin.role);
+  const [selectedRole, setSelectedRole] = useState("");
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
-  const [showPassword, setShowPassword] = useState({ current: false, new: false });
   const [passwords, setPasswords] = useState({ current: "", newPass: "" });
+  const [showPassword, setShowPassword] = useState({ current: false, newPass: false });
+  const [changingPassword, setChangingPassword] = useState(false);
 
+  // ── Fetch single admin profile ────────────────────────────────────────────
+  const { data: admin, isLoading } = useQuery({
+  queryKey: ["admin-profile", adminId],
+  queryFn: () => api.get(`/admin/profiles/${adminId}`).then((r) => r.data as AdminUser),
+});
+
+// Sync selectedRole when admin loads
+useEffect(() => {
+  if (admin?.role && !selectedRole) {
+    setSelectedRole(admin.role);
+  }
+}, [admin?.role]);
+
+  // ── Audit logs for this admin ─────────────────────────────────────────────
+  const { data: auditData, isLoading: auditLoading } = useQuery({
+    queryKey: ["admin-audit-logs"],
+    queryFn: () => api.get("/admin/profiles/audit-logs/all").then((r) => r.data),
+    enabled: activeTab === "activity",
+  });
+  const auditLogs: AuditLog[] = auditData?.items ?? [];
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
   const updateRoleMutation = useMutation({
-    mutationFn: (role: string) => api.patch(`/admin/users/${admin.id}/role`, { role }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); toast.success("Role updated"); },
+    mutationFn: (role: string) => api.patch(`/admin/profiles/${adminId}/role`, { role }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-profile", adminId] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success("Role updated");
+    },
     onError: () => toast.error("Failed to update role"),
   });
 
-  const updateStatusMutation = useMutation({
-  mutationFn: (is_active: boolean) =>
-    api.patch(`/admin/users/${admin.id}/status`, { is_active }),
-  onSuccess: (_, is_active) => {
-    qc.invalidateQueries({ queryKey: ["admin-users"] });
-    toast.success(`Admin ${is_active ? "activated" : "suspended"} successfully`);
-    setShowSuspendDialog(false);
-    setShowRemoveDialog(false);
-  },
-  onError: (err: any) => {
-    const msg = err?.response?.data?.detail ?? "Failed to update status";
-    toast.error(typeof msg === "string" ? msg : "Action failed — this may be an app user, not an admin account");
-    setShowSuspendDialog(false);
-    setShowRemoveDialog(false);
-  },
-});
+  const suspendMutation = useMutation({
+    mutationFn: () => api.post(`/admin/profiles/${adminId}/suspend`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-profile", adminId] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      toast.success(`${admin?.full_name} has been suspended`);
+      setShowSuspendDialog(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail ?? "Failed to suspend admin");
+      setShowSuspendDialog(false);
+    },
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => api.post(`/admin/profiles/${adminId}/resume`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-profile", adminId] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      toast.success(`${admin?.full_name} has been reactivated`);
+      setShowSuspendDialog(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail ?? "Failed to resume admin");
+      setShowSuspendDialog(false);
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: () => api.delete(`/admin/profiles/${adminId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      toast.success(`Admin permanently removed`);
+      setShowRemoveDialog(false);
+      onBack();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail ?? "Failed to remove admin");
+      setShowRemoveDialog(false);
+    },
+  });
+
+  const handleChangePassword = async () => {
+    if (!passwords.current || !passwords.newPass) return toast.error("Fill in both fields");
+    if (passwords.newPass.length < 12) return toast.error("Password must be at least 12 characters");
+    setChangingPassword(true);
+    try {
+      await api.post("/admin/security/change-password", {
+        current_password: passwords.current,
+        new_password: passwords.newPass,
+      });
+      toast.success("Password changed");
+      setPasswords({ current: "", newPass: "" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail ?? "Failed to change password");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const tabs = [
     { id: "general", label: "General", icon: UserCog },
@@ -229,18 +250,38 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
     { id: "activity", label: "Activity Log", icon: Activity },
   ] as const;
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-16 rounded-full" />
+        <div className="flex gap-4">
+          <Skeleton className="h-64 w-48 rounded-[16px] hidden lg:block" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-28 rounded-[16px]" />
+            <Skeleton className="h-40 rounded-[16px]" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!admin) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <p className="text-[14px] font-semibold text-gray-900 dark:text-white">Admin not found</p>
+      <button onClick={onBack} className="text-[13px] text-orange-500 hover:underline">← Back</button>
+    </div>
+  );
+
+  const isSuspendPending = suspendMutation.isPending || resumeMutation.isPending;
+
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Back */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-      >
+      <button onClick={onBack} className="flex items-center gap-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
 
-      <div className="flex md:flex-row flex-col gap-10 md:gap-4 md:items-start">
-        {/* Sidebar tabs — sticky on desktop */}
+      <div className="flex md:flex-row flex-col gap-4 md:items-start">
+        {/* Sidebar tabs */}
         <div className="hidden lg:block w-48 flex-shrink-0 sticky top-20">
           <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-2 space-y-1">
             {tabs.map(({ id, label, icon: Icon }) => (
@@ -265,25 +306,18 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
         <div className="lg:hidden w-full">
           <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-full border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-1.5 flex gap-1">
             {tabs.map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={cn(
-                  "flex-1 py-2 rounded-full text-[12px] font-medium transition-all",
-                  activeTab === id
-                    ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-sm"
-                    : "text-gray-600 dark:text-gray-400"
+              <button key={id} onClick={() => setActiveTab(id)}
+                className={cn("flex-1 py-2 rounded-full text-[12px] font-medium transition-all",
+                  activeTab === id ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-sm" : "text-gray-600 dark:text-gray-400"
                 )}
-              >
-                {label}
-              </button>
+              >{label}</button>
             ))}
           </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Profile Hero */}
+          {/* Hero */}
           <div className="bg-gradient-to-r from-orange-50 via-orange-50/50 to-transparent dark:from-orange-500/10 dark:via-orange-500/5 dark:to-transparent backdrop-blur-xl rounded-[16px] border border-orange-200/50 dark:border-orange-500/20 p-5">
             <div className="flex items-center gap-4">
               <Avatar admin={admin} size="lg" />
@@ -305,12 +339,11 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
           {/* General Tab */}
           {activeTab === "general" && (
             <div className="space-y-3">
-              {/* Role */}
               <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
                 <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Admin Role</h3>
                 <div className="relative mb-3">
                   <select
-                    value={selectedRole}
+                    value={selectedRole || admin.role}
                     onChange={(e) => setSelectedRole(e.target.value)}
                     className="w-full appearance-none pl-3 pr-8 h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[13px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-all focus:outline-none"
                   >
@@ -327,21 +360,16 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
                 >
                   {updateRoleMutation.isPending ? "Saving…" : "Save Changes"}
                 </button>
-                  <p className="text-[11px] text-orange-500/80 dark:text-orange-400/70 mt-2 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                    Role & status changes require a dedicated admin endpoint from the backend.
-                  </p>
               </div>
 
-              {/* Details */}
               <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
                 <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Admin Details</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { icon: Mail, label: admin.email },
-                    { icon: Clock, label: `Last Login ${formatTime(admin.last_login_at)}` },
-                    { icon: Phone, label: admin.phone ?? "Not set" },
+                    { icon: Clock, label: `Last Active: ${formatTime(admin.last_active)}` },
                     { icon: Calendar, label: `Added: ${formatDate(admin.created_at)}` },
+                    { icon: Shield, label: roleLabel(admin.role) },
                   ].map(({ icon: Icon, label }) => (
                     <div key={label} className="flex items-center gap-2.5 px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
                       <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -357,7 +385,7 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
           {activeTab === "security" && (
             <div className="space-y-3">
               <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
-                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-4">Admin Login Password</h3>
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-4">Change Password</h3>
                 <div className="space-y-3 mb-4">
                   {[
                     { label: "Current Password", key: "current" },
@@ -372,8 +400,7 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
                           onChange={(e) => setPasswords((p) => ({ ...p, [key]: e.target.value }))}
                           className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[10px] text-[12px] pr-10"
                         />
-                        <button
-                          type="button"
+                        <button type="button"
                           onClick={() => setShowPassword((p) => ({ ...p, [key]: !p[key as keyof typeof p] }))}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                         >
@@ -383,10 +410,13 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
                     </div>
                   ))}
                 </div>
-                <button className="px-5 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20">
-                  Reset Password
+                <button
+                  onClick={handleChangePassword}
+                  disabled={changingPassword || !passwords.current || !passwords.newPass}
+                  className="px-5 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
+                >
+                  {changingPassword ? "Updating…" : "Change Password"}
                 </button>
-
                 <div className="mt-4 flex items-center justify-between px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -396,21 +426,20 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
-                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Actions</h3>
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Account Actions</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setShowSuspendDialog(true)}
                     className="px-4 py-2 rounded-full text-[12px] font-semibold bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20 border border-orange-200/60 dark:border-orange-500/20 transition-all"
                   >
-                    {admin.is_active ? "Suspend Account" : "Activate Account"}
+                    {admin.is_active ? "Suspend Account" : "Reactivate Account"}
                   </button>
                   <button
                     onClick={() => setShowRemoveDialog(true)}
-                    className="px-4 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
+                    className="px-4 py-2 rounded-full text-[12px] font-semibold bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 border border-red-200/60 dark:border-red-500/20 transition-all"
                   >
-                    Remove Access
+                    Remove Permanently
                   </button>
                 </div>
               </div>
@@ -419,8 +448,61 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
 
           {/* Activity Log Tab */}
           {activeTab === "activity" && (
-  <AdminActivityLog />
-)}
+            <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-100/80 dark:border-gray-700/20">
+                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Audit Logs</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  Platform-wide admin activity — {auditData?.total ?? 0} total
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[540px]">
+                  <thead className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80">
+                    <tr>
+                      {["Timestamp", "Admin", "Action", "Target"].map((h) => (
+                        <th key={h} className="p-3 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i} className="border-t border-gray-200/30 dark:border-gray-700/30">
+                          {[...Array(4)].map((_, j) => (
+                            <td key={j} className="p-3"><Skeleton className="h-3.5 w-24" /></td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : auditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-[12px] text-gray-400">No audit logs yet</td>
+                      </tr>
+                    ) : (
+                      auditLogs.map((log) => (
+                        <tr key={log.id} className="border-t border-gray-200/30 dark:border-gray-700/30 hover:bg-[#F5F5F5]/50 dark:hover:bg-[#2D2B2B]/50 transition-colors">
+                          <td className="p-3 text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {formatDate(log.timestamp)}
+                          </td>
+                          <td className="p-3">
+                            <p className="text-[12px] font-medium text-gray-900 dark:text-white">{log.admin_name}</p>
+                            <p className="text-[10px] text-gray-400">{log.admin_email}</p>
+                          </td>
+                          <td className="p-3">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${actionColor(log.action)}`}>
+                              {actionLabel(log.action)}
+                            </span>
+                          </td>
+                          <td className="p-3 text-[11px] text-gray-500 dark:text-gray-400 max-w-[180px] truncate">
+                            {log.target !== "None:None" ? log.target : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -429,7 +511,7 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
         <DialogContent className="bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm mx-4">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">
-              {admin.is_active ? "Suspend Account?" : "Activate Account?"}
+              {admin.is_active ? "Suspend Account?" : "Reactivate Account?"}
             </DialogTitle>
             <DialogDescription className="text-[12px] text-gray-500 dark:text-gray-400">
               {admin.is_active
@@ -442,11 +524,11 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
               Cancel
             </button>
             <button
-              onClick={() => updateStatusMutation.mutate(!admin.is_active)}
-              disabled={updateStatusMutation.isPending}
+              onClick={() => admin.is_active ? suspendMutation.mutate() : resumeMutation.mutate()}
+              disabled={isSuspendPending}
               className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
             >
-              {updateStatusMutation.isPending ? "Updating…" : admin.is_active ? "Suspend" : "Activate"}
+              {isSuspendPending ? "Updating…" : admin.is_active ? "Suspend" : "Reactivate"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -470,21 +552,21 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[12px] text-orange-600 dark:text-orange-400 font-medium">
+            <div className="flex items-center gap-2 text-[12px] text-red-600 dark:text-red-400 font-medium">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               This action cannot be undone.
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <button onClick={() => setShowRemoveDialog(false)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20 border border-orange-200/60 dark:border-orange-500/20 transition-all">
+            <button onClick={() => setShowRemoveDialog(false)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">
               Cancel
             </button>
             <button
-              onClick={() => updateStatusMutation.mutate(false)}
-              disabled={updateStatusMutation.isPending}
-              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
+              onClick={() => removeMutation.mutate()}
+              disabled={removeMutation.isPending}
+              className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all shadow-md shadow-red-500/20 disabled:opacity-60"
             >
-              {updateStatusMutation.isPending ? "Removing…" : "Remove Access"}
+              {removeMutation.isPending ? "Removing…" : "Remove Permanently"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -493,57 +575,49 @@ const AdminDetail = ({ admin, onBack }: { admin: AdminUser; onBack: () => void }
   );
 };
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 const AdminProfiles = () => {
-  const { data: sessionsData } = useQuery({
-  queryKey: ["admin-sessions"],
-  queryFn: () => api.get("/admin/security/sessions").then((r) => r.data),
-});
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
+  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ full_name: "", email: "", password: "", role: "staff" });
   const limit = 25;
 
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: () => api.get("/admin/profiles/stats").then((r) => r.data as AdminStats),
+  });
+
+  // ── Admin List ────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-users", page, search, statusFilter, roleFilter],
+    queryKey: ["admin-profiles", page, search, statusFilter, roleFilter],
     queryFn: () =>
-  api.get("/admin/users", {
-    params: { page, limit, search: search || undefined },
-  }).then((r) => {
-    const raw = r.data;
-    return {
-      ...raw,
-      items: (raw.items ?? []).map((u: any) => ({
-        ...u,
-        // Normalize app user fields to AdminUser shape
-        role: u.role ?? "staff",
-        is_active: u.status ? u.status.toLowerCase() === "active" : true,
-        avatar_url: u.avatar_url ?? null,
-        last_login_at: u.last_active_at ?? null,
-        created_at: u.joined_at ?? new Date().toISOString(),
-        updated_at: u.updated_at ?? new Date().toISOString(),
-      })),
-    };
-  }),
+      api.get("/admin/profiles/", {
+        params: {
+          page,
+          limit,
+          search: search || undefined,
+          role: roleFilter !== "all" ? roleFilter : undefined,
+          is_active: statusFilter === "active" ? true : statusFilter === "suspended" ? false : undefined,
+        },
+      }).then((r) => r.data),
   });
 
   const admins: AdminUser[] = data?.items ?? [];
   const total: number = data?.total ?? 0;
 
-  const totalAdmins = admins.length;
-  const activeAdmins = admins.filter((a) => a.is_active).length;
-  const suspendedAdmins = admins.filter((a) => !a.is_active).length;
-
+  // ── Create admin ──────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: () => api.post("/admin/users", newAdmin),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+      qc.invalidateQueries({ queryKey: ["admin-stats"] });
       toast.success("Admin created successfully");
       setShowAddDialog(false);
       setNewAdmin({ full_name: "", email: "", password: "", role: "staff" });
@@ -554,8 +628,8 @@ const AdminProfiles = () => {
     },
   });
 
-  if (selectedAdmin) {
-    return <AdminDetail admin={selectedAdmin} onBack={() => setSelectedAdmin(null)} />;
+  if (selectedAdminId) {
+    return <AdminDetail adminId={selectedAdminId} onBack={() => setSelectedAdminId(null)} />;
   }
 
   return (
@@ -570,18 +644,17 @@ const AdminProfiles = () => {
           onClick={() => setShowAddDialog(true)}
           className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[13px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
         >
-          <Plus className="w-4 h-4" />
-          Add Admin
+          <Plus className="w-4 h-4" /> Add Admin
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — now from /admin/profiles/stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total Admins", value: isLoading ? "—" : total, desc: "Active admin with system access", icon: Shield, color: "orange" },
-          { label: "Active Admins", value: isLoading ? "—" : activeAdmins, desc: "Active administrators", icon: UserCog, color: "green" },
-          { label: "Suspended Admins", value: isLoading ? "—" : suspendedAdmins, desc: "Administrators with no system access", icon: Lock, color: "red" },
-          { label: "Active Sessions", value: isLoading ? "—" : sessionsData?.items?.length ?? 0, desc: "Currently logged-in admins", icon: Activity, color: "blue" },
+          { label: "Total Admins", value: statsLoading ? "—" : (stats?.total_admins ?? 0), desc: "All admin accounts", icon: Shield, color: "orange" },
+          { label: "Active Admins", value: statsLoading ? "—" : (stats?.active_admins ?? 0), desc: "Currently active", icon: UserCog, color: "green" },
+          { label: "Suspended", value: statsLoading ? "—" : (stats?.suspended_admins ?? 0), desc: "Access revoked", icon: Lock, color: "red" },
+          { label: "Active Sessions", value: statsLoading ? "—" : (stats?.active_sessions ?? 0), desc: "Currently logged in", icon: Activity, color: "blue" },
         ].map(({ label, value, desc, icon: Icon, color }) => (
           <div key={label} className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
             <div className="flex items-start justify-between mb-2">
@@ -601,7 +674,7 @@ const AdminProfiles = () => {
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
           <Input
-            placeholder="Search admin...."
+            placeholder="Search admins…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="pl-11 h-11 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-full border-gray-200/50 dark:border-gray-700/30 focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 text-[13px] shadow-sm"
@@ -610,7 +683,7 @@ const AdminProfiles = () => {
         <div className="flex gap-2">
           {[
             { value: statusFilter, setter: setStatusFilter, options: [["all", "All Status"], ["active", "Active"], ["suspended", "Suspended"]] },
-            { value: roleFilter, setter: setRoleFilter, options: [["all", "Roles"], ["superadmin", "Super Admin"], ["admin", "Admin"], ["staff", "Staff"]] },
+            { value: roleFilter, setter: setRoleFilter, options: [["all", "All Roles"], ["superadmin", "Super Admin"], ["admin", "Admin"], ["staff", "Staff"]] },
           ].map(({ value, setter, options }) => (
             <div key={value} className="relative">
               <select
@@ -632,7 +705,7 @@ const AdminProfiles = () => {
           <table className="w-full min-w-[640px]">
             <thead className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80">
               <tr>
-                {["Admin", "Description", "Role", "Status", "Last Active", "Created", "Action"].map((h) => (
+                {["Admin", "Role", "Status", "Last Active", "Created", "Action"].map((h) => (
                   <th key={h} className={`p-4 text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider ${h === "Action" ? "text-right" : "text-left"}`}>
                     {h}
                   </th>
@@ -652,61 +725,56 @@ const AdminProfiles = () => {
                         </div>
                       </div>
                     </td>
-                    {[...Array(6)].map((_, j) => (
+                    {[...Array(5)].map((_, j) => (
                       <td key={j} className="p-4"><Skeleton className="h-3.5 w-20" /></td>
                     ))}
                   </tr>
                 ))
               ) : admins.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-[13px] text-gray-400">No admins found</td>
+                  <td colSpan={6} className="p-8 text-center text-[13px] text-gray-400">No admins found</td>
                 </tr>
               ) : (
-                admins.map((admin) => (
+                admins.map((adm) => (
                   <tr
-                    key={admin.id}
+                    key={adm.id}
                     className="border-t border-gray-200/30 dark:border-gray-700/30 hover:bg-[#F5F5F5]/50 dark:hover:bg-[#2D2B2B]/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedAdmin(admin)}
+                    onClick={() => setSelectedAdminId(adm.id)}
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <Avatar admin={admin} size="md" />
+                        <Avatar admin={adm} size="md" />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-gray-900 dark:text-white truncate">{admin.full_name}</p>
-                          <p className="text-[11px] text-gray-500 dark:text-gray-500 truncate">{admin.email}</p>
+                          <p className="text-[13px] font-semibold text-gray-900 dark:text-white truncate">{adm.full_name}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-500 truncate">{adm.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="text-[12px] text-gray-500 dark:text-gray-400">
-                        {admin.role === "superadmin" ? "Full system control" : admin.role === "admin" ? "Limited admin access" : "Read & support access"}
-                      </span>
-                    </td>
-                    <td className="p-4">
                       <div>
-                        <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${roleColor(admin.role)}`}>
-                          {roleLabel(admin.role)}
+                        <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${roleColor(adm.role)}`}>
+                          {roleLabel(adm.role)}
                         </span>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          {admin.role === "superadmin" ? "Full Access" : admin.role === "admin" ? "Limited" : "Restricted"}
+                          {adm.role === "superadmin" ? "Full Access" : adm.role === "admin" ? "Limited" : "Restricted"}
                         </p>
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusColor(admin.is_active)}`}>
-                        {admin.is_active ? "Active" : "Suspended"}
+                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusColor(adm.is_active)}`}>
+                        {adm.is_active ? "Active" : "Suspended"}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1 text-[12px] text-gray-500 dark:text-gray-400">
                         <Clock className="w-3 h-3" />
-                        {formatTime(admin.last_login_at)}
+                        {formatTime(adm.last_active)}
                       </div>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1 text-[12px] text-gray-500 dark:text-gray-400">
                         <Calendar className="w-3 h-3" />
-                        {formatDate(admin.created_at)}
+                        {formatDate(adm.created_at)}
                       </div>
                     </td>
                     <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -719,19 +787,21 @@ const AdminProfiles = () => {
                         <DropdownMenuContent align="end" className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2">
                           <DropdownMenuLabel className="text-[12px] font-semibold">Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
-                          <DropdownMenuItem onClick={() => setSelectedAdmin(admin)} className="rounded-[10px] text-[13px] cursor-pointer">
+                          <DropdownMenuItem onClick={() => setSelectedAdminId(adm.id)} className="rounded-[10px] text-[13px] cursor-pointer">
                             <Eye className="w-4 h-4 mr-2" /> View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedAdmin(admin)} className="rounded-[10px] text-[13px] cursor-pointer">
+                          <DropdownMenuItem onClick={() => setSelectedAdminId(adm.id)} className="rounded-[10px] text-[13px] cursor-pointer">
                             <UserCog className="w-4 h-4 mr-2" /> Edit Role
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
                           <DropdownMenuItem
-                            onClick={() => setSelectedAdmin(admin)}
-                            className="text-red-600 dark:text-red-400 rounded-[10px] text-[13px] cursor-pointer"
+                            onClick={() => setSelectedAdminId(adm.id)}
+                            className={cn("rounded-[10px] text-[13px] cursor-pointer", adm.is_active ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400")}
                           >
-                            <Lock className="w-4 h-4 mr-2" />
-                            {admin.is_active ? "Suspend Admin" : "Activate Admin"}
+                            {adm.is_active
+                              ? <><Lock className="w-4 h-4 mr-2" /> Suspend</>
+                              : <><CheckCircle className="w-4 h-4 mr-2" /> Reactivate</>
+                            }
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -784,6 +854,9 @@ const AdminProfiles = () => {
                   onChange={(e) => setNewAdmin((p) => ({ ...p, [key]: e.target.value }))}
                   className="h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[10px] text-[12px]"
                 />
+                {key === "password" && newAdmin.password.length > 0 && newAdmin.password.length < 12 && (
+                  <p className="text-[11px] text-red-500">Password must be at least 12 characters</p>
+                )}
               </div>
             ))}
             <div className="space-y-1">

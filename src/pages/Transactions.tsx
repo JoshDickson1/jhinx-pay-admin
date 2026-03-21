@@ -252,12 +252,12 @@ const Transactions = () => {
           >
             <FileDown className="w-3.5 h-3.5" /> Export CSV
           </button>
-          <button
+          {/* <button
             onClick={() => setInvoiceOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-medium bg-white/80 dark:bg-[#1C1C1C]/90 border border-gray-200/50 dark:border-gray-700/30 text-gray-700 dark:text-gray-300 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all shadow-sm"
           >
             <Download className="w-3.5 h-3.5" /> Download Invoices
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -474,7 +474,7 @@ const Transactions = () => {
       </Dialog>
 
       {/* ── Download Invoices Dialog ── */}
-      <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+      {/* <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
         <DialogContent className="bg-white dark:bg-[#1C1C1C] border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">Download Invoices</DialogTitle>
@@ -503,7 +503,7 @@ const Transactions = () => {
             </button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
 
       {/* ── Flag Dialog ── */}
       <Dialog open={!!flagTarget} onOpenChange={() => setFlagTarget(null)}>

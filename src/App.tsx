@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Toaster } from "@/components/ui/toaster";
+// import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -19,12 +19,12 @@ import Transactions from "@/pages/Transactions";
 import TransactionDetail from "@/pages/TransactionDetail";
 import GiftCardApprovals from "@/pages/GiftCardApprovals";
 import GiftCardReview from "@/pages/GiftCardReview";
-import Settings from "@/pages/Settings";
+// import Settings from "@/pages/Settings";
 import TransactionLimits from "@/pages/settings/TransactionLimits";
 import SupportedGames from "@/pages/settings/SupportedGames";
 import SystemNotifications from "@/pages/settings/SystemNotifications";
 import FeatureControls from "@/pages/settings/FeatureControls";
-import AuditLog from "@/pages/AuditLog";
+// import AuditLog from "@/pages/AuditLog";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 import Support from "@/pages/Support";
@@ -77,7 +77,7 @@ const App = () => {
                             <Route path="/support-tickets" element={<Support />} />
                             <Route path="/support-tickets/:id" element={<SupportTicketDetail />} />
                             <Route path="/support" element={<HelpCenter />} />
-                            <Route path="/settings" element={<Settings />} />
+                            {/* <Route path="/settings" element={<Settings />} /> */}
                             <Route path="/settings/rates" element={<RateControl />} />
                             <Route path="/settings/limits" element={<TransactionLimits />} />
                             <Route path="/settings/games" element={<SupportedGames />} />
@@ -85,7 +85,7 @@ const App = () => {
                             <Route path="/settings/features" element={<FeatureControls />} />
                             <Route path="/reports" element={<Reports />} />
                             <Route path="/reports/export" element={<Reports />} />
-                            <Route path="/audit-log" element={<AuditLog />} />
+                            {/* <Route path="/audit-log" element={<AuditLog />} /> */}
                             <Route path="/admin-profiles" element={<AdminProfiles />} />
                             <Route path="/profile" element={<MyProfile />} />
                             <Route path="/preferences" element={<Preferences />} />
