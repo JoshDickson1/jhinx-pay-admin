@@ -63,12 +63,16 @@ export const SystemHealth = () => {
     data?.components ?? data?.services ?? data?.items ??
     (Array.isArray(data) ? data : []);
 
-  const services: ServiceStatus[] = raw.map((item: any) => ({
-    name: item.name ?? item.component ?? item.service ?? "Unknown",
-    status: normalizeStatus(item.status ?? item.health),
-    lastChecked: formatChecked(item.last_checked ?? item.checked_at ?? item.updated_at),
-    message: item.message ?? item.description ?? undefined,
-  }));
+  const topLevelTime = data?.last_updated ?? data?.checked_at ?? null;
+
+const services: ServiceStatus[] = raw.map((item: any) => ({
+  name: item.name ?? item.component ?? item.service ?? "Unknown",
+  status: normalizeStatus(item.status ?? item.health),
+  lastChecked: formatChecked(
+    item.last_checked ?? item.checked_at ?? item.updated_at ?? topLevelTime
+  ),
+  message: item.message ?? item.description ?? undefined,
+}));
 
   const allOperational = services.length > 0 && services.every((s) => s.status === "operational");
 
