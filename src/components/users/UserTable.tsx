@@ -410,7 +410,7 @@ export const UserTable = () => {
                 </tr>
               ) : (
                 users.map((user) => {
-                  const status = user.status.toLowerCase();
+                  const status = (user.status ?? "").toLowerCase();
                   const isFrozen = status === "frozen";
                   const isBanned = status === "banned";
 

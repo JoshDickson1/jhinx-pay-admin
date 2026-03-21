@@ -691,7 +691,9 @@ const AdminProfiles = () => {
                 onChange={(e) => { setter(e.target.value); setPage(1); }}
                 className="appearance-none pl-4 pr-8 h-11 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/30 rounded-full text-[13px] font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all focus:outline-none shadow-sm"
               >
-                {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {options.map(([v, l]) => (
+  <option key={`${v}-${l}`} value={v}>{l}</option>
+))}
               </select>
               <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none rotate-[-90deg]" />
             </div>

@@ -138,7 +138,7 @@ export const ProfileTab = () => {
                 <>
                   <h2 className="text-[15px] font-bold text-gray-900 dark:text-white truncate">{displayName}</h2>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{displayEmail}</p>
-                  <Badge className="mt-1 text-[9px] px-2 py-0.5 bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-500/20 dark:to-orange-500/10 text-orange-700 dark:text-orange-400 border-0 rounded-full font-bold uppercase tracking-wide">
+                  <Badge className="mt-1 text-[9px] px-2 py-0.5 bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-50/20 dark:to-orange-50/10 text-orange-700 dark:text-white border-0 rounded-full font-bold uppercase tracking-wide">
                     {displayRole}
                   </Badge>
                 </>
