@@ -1,19 +1,9 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  ArrowLeftRight,
-  Settings,
-  UserCog,
-  ChevronDown,
-  ChevronRight,
-  LogOut,
-  Menu,
-  X,
-  Ticket,
-  Settings2,
-  TrendingUp,
-  Users2,
+  LayoutDashboard, ArrowLeftRight, Settings, UserCog,
+  ChevronDown, ChevronRight, LogOut, Menu, X,
+  Ticket, Settings2, TrendingUp, Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +12,9 @@ import { useAuthStore } from "@/store/authStore";
 import { getAvatarUrl } from "@/lib/utils";
 import api from "@/api/axiosInstance";
 import { useSidebarStore } from "@/store/sidebarStore";
+import { useQuery } from "@tanstack/react-query";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface NavItemProps {
   to: string;
@@ -32,17 +25,22 @@ interface NavItemProps {
   onNavigate?: () => void;
 }
 
+// ── NavItem ───────────────────────────────────────────────────────────────────
+
 const NavItem = ({ to, icon: Icon, label, badge, children, onNavigate }: NavItemProps) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const activeChild = children?.find((child) => location.pathname === child.to);
+  const activeChild  = children?.find((child) => location.pathname === child.to);
   const isParentActive = location.pathname === to;
-  const hasChildren = children && children.length > 0;
+  const hasChildren  = children && children.length > 0;
 
   useEffect(() => {
     if (activeChild) setIsOpen(true);
   }, [activeChild]);
+
+  // Only show badge when value is a real positive number
+  const showBadge = (n?: number) => n != null && n > 0;
 
   if (hasChildren) {
     return (
@@ -63,7 +61,7 @@ const NavItem = ({ to, icon: Icon, label, badge, children, onNavigate }: NavItem
             <Icon className="w-[14px] h-[14px]" />
           </div>
           <span className="flex-1 text-left">{label}</span>
-          {badge && (
+          {showBadge(badge) && (
             <Badge variant="warning" className="text-[9px] px-1.5 py-0 bg-orange-500/20 text-orange-700 dark:text-orange-400 border-0 rounded-full">
               {badge}
             </Badge>
@@ -92,14 +90,14 @@ const NavItem = ({ to, icon: Icon, label, badge, children, onNavigate }: NavItem
                     )}
                   >
                     <span className="flex-1">{child.label}</span>
-                    {child.badge && (
+                    {showBadge(child.badge) && (
                       <Badge
                         variant="warning"
                         className={cn(
                           "text-[9px] px-1.5 py-0 border-0 rounded-full",
                           isChildActive
                             ? "bg-orange-500/30 text-orange-800 dark:text-orange-700"
-                            : "bg-gray-200/80 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400"
+                            : "bg-orange-500/20 text-orange-700 dark:text-orange-400"
                         )}
                       >
                         {child.badge}
@@ -135,7 +133,7 @@ const NavItem = ({ to, icon: Icon, label, badge, children, onNavigate }: NavItem
         <Icon className="w-[14px] h-[14px] flex-shrink-0" />
       </div>
       <span className="flex-1">{label}</span>
-      {badge && (
+      {showBadge(badge) && (
         <Badge variant="warning" className="text-[9px] px-1.5 py-0 bg-orange-500/20 text-orange-700 dark:text-orange-400 border-0 rounded-full">
           {badge}
         </Badge>
@@ -144,29 +142,58 @@ const NavItem = ({ to, icon: Icon, label, badge, children, onNavigate }: NavItem
   );
 };
 
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
 export const AdminSidebar = () => {
-  const { isOpen: isMobileOpen, toggle: toggleSidebar, close: closeSidebar } = useSidebarStore();
+  const { isOpen: isMobileOpen, close: closeSidebar } = useSidebarStore();
   const { admin, logout } = useAuthStore();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
   // Close mobile sidebar on route change
-  useEffect(() => {
-  closeSidebar();
-}, [location.pathname]);
+  useEffect(() => { closeSidebar(); }, [location.pathname]);
+
+  // ── Live badge counts ──────────────────────────────────────────────────────
+
+  // Support ticket open count
+  const { data: ticketStats } = useQuery({
+    queryKey: ["ticket-stats-sidebar"],
+    queryFn: () => api.get("/admin/support/tickets/stats").then((r) => r.data),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  // Gift card pending count
+  const { data: gcStats } = useQuery({
+    queryKey: ["gc-stats-sidebar"],
+    queryFn: () => api.get("/admin/giftcards/submissions/stats").then((r) => r.data),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const openTickets  = ticketStats?.open_tickets?.value ?? 0;
+  const pendingCards = gcStats?.pending?.value ?? 0;
 
   const handleLogout = async () => {
     try { await api.post("/admin/logout"); } catch (_) {}
     finally { logout(); navigate("/login"); }
   };
 
-  const avatarUrl = getAvatarUrl(admin?.avatar_url);
-  const displayName = (admin?.first_name && admin?.last_name)
+  const avatarUrl    = getAvatarUrl(admin?.avatar_url);
+  const displayName  = (admin?.first_name && admin?.last_name)
     ? `${admin.first_name} ${admin.last_name}`
     : admin?.full_name ?? "Admin";
   const displayEmail = admin?.email ?? "";
-  const displayRole = admin?.role === "superadmin" ? "Super" : admin?.role ?? "Admin";
+  const displayRole  = admin?.role === "superadmin" ? "Super"
+    : admin?.role === "admin" ? "Admin"
+    : admin?.role ?? "Staff";
   const initials = displayName.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "AD";
+
+  // ── Role-based visibility ──────────────────────────────────────────────────
+  // Only superadmin sees the Admin & Access section
+  const isSuperAdmin = admin?.role === "superadmin";
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
 
   const navigation: NavItemProps[] = [
     {
@@ -174,7 +201,7 @@ export const AdminSidebar = () => {
       icon: LayoutDashboard,
       label: "Overview",
       children: [
-        { to: "/", label: "Dashboard" },
+        { to: "/",              label: "Dashboard"     },
         { to: "/system-health", label: "System Health" },
       ],
     },
@@ -184,31 +211,32 @@ export const AdminSidebar = () => {
       icon: ArrowLeftRight,
       label: "Transactions & Ops",
       children: [
-        { to: "/transactions", label: "All Transactions" },
-        { to: "/transactions/gift-cards", label: "Gift Card Queue", badge: 23 },
+        { to: "/transactions",             label: "All Transactions"                              },
+        { to: "/transactions/gift-cards",  label: "Gift Card Queue", badge: pendingCards || undefined },
       ],
     },
-    { to: "/support-tickets", icon: Ticket, label: "Support Tickets", badge: 8 },
-    { to: "/settings/rates", icon: Settings2, label: "Rate Controls", badge: 8 },
-    { to: "/analytics", icon: TrendingUp, label: "Analytics & Reports", badge: 8 },
+    { to: "/support-tickets", icon: Ticket,    label: "Support Tickets",     badge: openTickets || undefined },
+    { to: "/settings/rates",  icon: Settings2, label: "Rate Controls"                                        },
+    { to: "/analytics",       icon: TrendingUp, label: "Analytics & Reports"                                 },
     {
       to: "/settings",
       icon: Settings,
       label: "System Settings",
       children: [
         { to: "/settings/notifications", label: "System Notifications" },
-        { to: "/settings/features", label: "Feature Controls" },
+        { to: "/settings/features",      label: "Feature Controls"     },
       ],
     },
-    {
-  to: "/admin-profiles",
-  icon: UserCog,
-  label: "Admin & Access",
-  children: [
-    { to: "/admin-profiles", label: "Admin Profiles" },
-    { to: "/audit-log", label: "Audit Logs" },
-  ],
-},
+    // Admin & Access — only visible to superadmin
+    ...(isSuperAdmin ? [{
+      to: "/admin-profiles",
+      icon: UserCog,
+      label: "Admin & Access",
+      children: [
+        { to: "/admin-profiles", label: "Admin Profiles" },
+        { to: "/audit-log",      label: "Audit Logs"     },
+      ],
+    }] : []),
   ];
 
   const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
@@ -223,7 +251,7 @@ export const AdminSidebar = () => {
               className="w-5 h-5"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
-                e.currentTarget.nextElementSibling?.classList.remove("hidden");
+                (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
               }}
             />
             <span className="hidden text-white font-bold text-xs">JP</span>
@@ -244,13 +272,8 @@ export const AdminSidebar = () => {
 
       {/* Footer */}
       <div className="mt-auto border-t border-gray-200/30 dark:border-gray-700/30">
-        {/* User Profile */}
         <div className="px-3 py-3 bg-gradient-to-br from-orange-50/30 via-orange-50/20 to-transparent dark:from-orange-500/5 dark:via-orange-500/3 dark:to-transparent">
-          <NavLink
-            to="/profile"
-            onClick={onNavigate}
-            className="flex items-center gap-2.5 group"
-          >
+          <NavLink to="/profile" onClick={onNavigate} className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 shadow-lg shadow-orange-500/20 relative">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
@@ -265,9 +288,7 @@ export const AdminSidebar = () => {
               <p className="text-[12px] font-semibold text-gray-900 dark:text-white truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                 {displayName}
               </p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-500 truncate">
-                {displayEmail}
-              </p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-500 truncate">{displayEmail}</p>
             </div>
             <Badge
               variant="accent"
@@ -278,7 +299,6 @@ export const AdminSidebar = () => {
           </NavLink>
         </div>
 
-        {/* Logout */}
         <div className="px-2.5 py-2.5">
           <button
             onClick={handleLogout}
@@ -297,16 +317,12 @@ export const AdminSidebar = () => {
   return (
     <>
       <style>{`
-        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.3s ease; }
-        .custom-scrollbar:hover { scrollbar-color: rgba(156, 163, 175, 0.3) transparent; }
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+        .custom-scrollbar:hover { scrollbar-color: rgba(156,163,175,0.3) transparent; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; transition: background 0.3s ease; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.5); }
-        .dark .custom-scrollbar:hover { scrollbar-color: rgba(75, 85, 99, 0.4) transparent; }
-        .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(75, 85, 99, 0.4); }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(75, 85, 99, 0.6); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.3); }
+        .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(75,85,99,0.4); }
       `}</style>
 
       {/* Mobile Top Bar */}
@@ -338,29 +354,10 @@ export const AdminSidebar = () => {
       )}
 
       {/* Mobile Sidebar */}
-      <aside
-        className={cn(
-          "lg:hidden fixed top-0 left-0 bottom-0 w-[280px] z-50 transform transition-transform duration-300 ease-in-out shadow-2xl",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        {/* Mobile sidebar header with close button */}
-        {/* <div className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 border-b border-gray-200/30 dark:border-gray-700/30 bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-2xl z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[12px] bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
-              <span className="text-white font-bold text-xs">JP</span>
-            </div>
-            <span className="font-semibold text-gray-900 dark:text-white text-[13px]">JhinxPay Admin</span>
-          </div>
-          <button
-            onClick={closeSidebar}
-            className="w-8 h-8 rounded-full bg-[#F5F5F5] dark:bg-[#2D2B2B] flex items-center justify-center hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-colors"
-          >
-            <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          </button>
-        </div> */}
-
-        {/* Sidebar content pushed below header */}
+      <aside className={cn(
+        "lg:hidden fixed top-0 left-0 bottom-0 w-[280px] z-50 transform transition-transform duration-300 ease-in-out shadow-2xl",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="h-full z-50">
           <SidebarContent onNavigate={closeSidebar} />
         </div>

@@ -33,7 +33,7 @@ import HelpCenter from "@/pages/HelpCenter";
 import Reports from "@/pages/Reports";
 import AdminProfiles from "@/pages/AdminProfiles";
 import MyProfile from "@/pages/MyProfile";
-import Preferences from "@/pages/Preferences";
+// import Preferences from "@/pages/Preferences";
 import SystemHealth from "@/pages/SystemHealth";
 import AllNotifications from "@/pages/AllNotifications";
 import RateControl from "@/pages/RateControl";
@@ -91,7 +91,7 @@ const App = () => {
                             <Route path="/audit-log" element={<AuditLog />} />
                             <Route path="/admin-profiles" element={<AdminProfiles />} />
                             <Route path="/profile" element={<MyProfile />} />
-                            <Route path="/preferences" element={<Preferences />} />
+                            {/* <Route path="/preferences" element={<Preferences />} /> */}
                             <Route path="/notifications" element={<AllNotifications />} />
                             <Route path="*" element={<NotFound />} />
                           </Routes>

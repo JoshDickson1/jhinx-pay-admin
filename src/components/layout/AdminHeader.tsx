@@ -97,9 +97,9 @@ export const AdminHeader = () => {
       <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
         <span className="font-medium">My Profile</span>
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => navigate("/preferences")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
+      {/* <DropdownMenuItem onClick={() => navigate("/preferences")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
         <span className="font-medium">Preferences</span>
-      </DropdownMenuItem>
+      </DropdownMenuItem> */}
       {/* <DropdownMenuItem onClick={() => navigate("/support/help-center")} className="rounded-[10px] px-2.5 py-2 text-[12px] cursor-pointer hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all duration-200">
         <span className="font-medium">Keyboard Shortcuts</span>
         <kbd className="ml-auto text-[9px] font-semibold text-gray-500 dark:text-gray-500 bg-white/80 dark:bg-[#3A3737] px-1.5 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">⌘K</kbd>
