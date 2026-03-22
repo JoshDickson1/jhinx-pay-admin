@@ -31,8 +31,22 @@ const Preferences = () => {
   const { theme, setTheme } = useTheme();
   const qc = useQueryClient();
 
-  const [currency, setCurrency] = useState("Nigeria Naira (₦)");
-  const [rowsPerPage, setRowsPerPage] = useState("25 Rows");
+  const [currency, setCurrency] = useState<string>(
+  () => localStorage.getItem("pref_currency") ?? "Nigeria Naira (₦)"
+);
+const [rowsPerPage, setRowsPerPage] = useState<string>(
+  () => localStorage.getItem("pref_rows_per_page") ?? "25 Rows"
+);
+
+const handleCurrencyChange = (val: string) => {
+  setCurrency(val);
+  localStorage.setItem("pref_currency", val);
+};
+
+const handleRowsChange = (val: string) => {
+  setRowsPerPage(val);
+  localStorage.setItem("pref_rows_per_page", val);
+};
   const [saveOpen, setSaveOpen] = useState(false);
   const [notifications, setNotifications] = useState<Record<string, boolean>>({
     transactions: true, kyc: true, support: true, system: true, security: true,
@@ -44,27 +58,33 @@ const Preferences = () => {
   });
 
   useEffect(() => {
-    if (prefsData) {
-      setNotifications({
-        transactions: prefsData.transactions ?? true,
-        kyc: prefsData.kyc ?? true,
-        support: prefsData.support ?? true,
-        system: prefsData.system ?? true,
-        security: prefsData.security ?? true,
-      });
-    }
-  }, [prefsData]);
+  if (prefsData) {
+    setNotifications({
+      transactions: prefsData.new_transactions  ?? true,
+      kyc:          prefsData.kyc_updates       ?? true,
+      support:      prefsData.support_tickets   ?? true,
+      system:       prefsData.system_alerts     ?? true,
+      security:     prefsData.security_alerts   ?? true,
+    });
+  }
+}, [prefsData]);
 
   const savePrefs = useMutation({
-    mutationFn: () =>
-      api.patch("/admin/notifications/preferences", notifications).then((r) => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
-      toast.success("Preferences saved");
-      setSaveOpen(false);
-    },
-    onError: () => toast.error("Failed to save preferences"),
-  });
+  mutationFn: () =>
+    api.patch("/admin/notifications/preferences", {
+      new_transactions: notifications.transactions,
+      kyc_updates:      notifications.kyc,
+      support_tickets:  notifications.support,
+      system_alerts:    notifications.system,
+      security_alerts:  notifications.security,
+    }).then((r) => r.data),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
+    toast.success("Preferences saved");
+    setSaveOpen(false);
+  },
+  onError: () => toast.error("Failed to save preferences"),
+});
 
   return (
     <div className="space-y-4 animate-fade-in">

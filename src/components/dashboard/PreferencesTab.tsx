@@ -14,16 +14,16 @@ import api from "@/api/axiosInstance";
 type Theme = "light" | "dark" | "system";
 
 const notificationKeys = [
-  { key: "transactions", label: "New Transactions", description: "Keep your account safe and secure." },
-  { key: "kyc", label: "KYC Updates", description: "New submissions and status changes" },
-  { key: "support", label: "Support Tickets", description: "New tickets and replies" },
-  { key: "system", label: "System Alerts", description: "Maintenance and updates" },
-  { key: "security", label: "Security Alerts", description: "Suspicious activity and fraud" },
+  { key: "transactions", label: "New Transactions", description: "Gift card submissions, crypto trades" },
+  { key: "kyc",          label: "KYC Updates",       description: "New submissions and status changes" },
+  { key: "support",      label: "Support Tickets",   description: "New tickets and replies" },
+  { key: "system",       label: "System Alerts",     description: "Maintenance and updates" },
+  { key: "security",     label: "Security Alerts",   description: "Suspicious activity and fraud" },
 ];
 
 const themeOptions: { id: Theme; label: string; icon: React.ElementType }[] = [
-  { id: "light", label: "Light Mode", icon: Sun },
-  { id: "dark", label: "Dark Mode", icon: Moon },
+  { id: "light",  label: "Light Mode",     icon: Sun     },
+  { id: "dark",   label: "Dark Mode",      icon: Moon    },
   { id: "system", label: "System Default", icon: Monitor },
 ];
 
@@ -31,8 +31,23 @@ export const PreferencesTab = () => {
   const { theme, setTheme } = useTheme();
   const qc = useQueryClient();
 
-  const [currency, setCurrency] = useState("Nigeria Naira (₦)");
-  const [rowsPerPage, setRowsPerPage] = useState("25 Rows");
+  const [currency, setCurrency] = useState<string>(
+    () => localStorage.getItem("pref_currency") ?? "Nigeria Naira (₦)"
+  );
+  const [rowsPerPage, setRowsPerPage] = useState<string>(
+    () => localStorage.getItem("pref_rows_per_page") ?? "25 Rows"
+  );
+
+  const handleCurrencyChange = (val: string) => {
+    setCurrency(val);
+    localStorage.setItem("pref_currency", val);
+  };
+
+  const handleRowsChange = (val: string) => {
+    setRowsPerPage(val);
+    localStorage.setItem("pref_rows_per_page", val);
+  };
+
   const [saveOpen, setSaveOpen] = useState(false);
   const [notifications, setNotifications] = useState<Record<string, boolean>>({
     transactions: true, kyc: true, support: true, system: true, security: true,
@@ -43,32 +58,34 @@ export const PreferencesTab = () => {
     queryFn: () => api.get("/admin/notifications/preferences").then((r) => r.data),
   });
 
-  // Sync API data into local state
   useEffect(() => {
-    if (prefsData) {
-      setNotifications({
-        transactions: prefsData.transactions ?? true,
-        kyc: prefsData.kyc ?? true,
-        support: prefsData.support ?? true,
-        system: prefsData.system ?? true,
-        security: prefsData.security ?? true,
-      });
-    }
-  }, [prefsData]);
+  if (prefsData) {
+    setNotifications({
+      transactions: prefsData.new_transactions  ?? true,
+      kyc:          prefsData.kyc_updates       ?? true,
+      support:      prefsData.support_tickets   ?? true,
+      system:       prefsData.system_alerts     ?? true,
+      security:     prefsData.security_alerts   ?? true,
+    });
+  }
+}, [prefsData]);
 
   const savePrefs = useMutation({
-    mutationFn: () =>
-      api.patch("/admin/notifications/preferences", notifications).then((r) => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
-      toast.success("Preferences saved");
-      setSaveOpen(false);
-    },
-    onError: () => toast.error("Failed to save preferences"),
-  });
-
-  const toggleNotification = (key: string) =>
-    setNotifications((p) => ({ ...p, [key]: !p[key] }));
+  mutationFn: () =>
+    api.patch("/admin/notifications/preferences", {
+      new_transactions: notifications.transactions,
+      kyc_updates:      notifications.kyc,
+      support_tickets:  notifications.support,
+      system_alerts:    notifications.system,
+      security_alerts:  notifications.security,
+    }).then((r) => r.data),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ["admin", "notification-prefs"] });
+    toast.success("Preferences saved");
+    setSaveOpen(false);
+  },
+  onError: () => toast.error("Failed to save preferences"),
+});
 
   return (
     <div className="space-y-3">
@@ -80,10 +97,7 @@ export const PreferencesTab = () => {
         </div>
         <div className="space-y-2">
           {notificationKeys.map(({ key, label, description }) => (
-            <div
-              key={key}
-              className="flex items-center justify-between px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px] hover:bg-[#EFEFEF]/80 dark:hover:bg-[#333]/80 transition-colors"
-            >
+            <div key={key} className="flex items-center justify-between px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px] hover:bg-[#EFEFEF]/80 dark:hover:bg-[#333]/80 transition-colors">
               <div>
                 <p className="text-[12px] font-semibold text-gray-900 dark:text-white">{label}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">{description}</p>
@@ -92,8 +106,8 @@ export const PreferencesTab = () => {
                 <Skeleton className="h-5 w-9 rounded-full" />
               ) : (
                 <Switch
-                  checked={notifications[key]}
-                  onCheckedChange={() => toggleNotification(key)}
+                  checked={notifications[key] ?? true}
+                  onCheckedChange={(val) => setNotifications((p) => ({ ...p, [key]: val }))}
                   className="data-[state=checked]:bg-green-500 scale-90 flex-shrink-0"
                 />
               )}
@@ -112,9 +126,7 @@ export const PreferencesTab = () => {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {themeOptions.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setTheme(id)}
+              <button key={id} onClick={() => setTheme(id)}
                 className={cn(
                   "flex flex-col items-center gap-2 p-3 rounded-[12px] border transition-all duration-200",
                   theme === id
@@ -122,10 +134,7 @@ export const PreferencesTab = () => {
                     : "bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40"
                 )}
               >
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center",
-                  theme === id ? "bg-white/70 dark:bg-[#1C1C1C]/60" : "bg-white/60 dark:bg-[#1C1C1C]/40"
-                )}>
+                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", theme === id ? "bg-white/70 dark:bg-[#1C1C1C]/60" : "bg-white/60 dark:bg-[#1C1C1C]/40")}>
                   <Icon className={cn("w-4 h-4", theme === id ? "text-orange-600 dark:text-orange-400" : "text-gray-500 dark:text-gray-400")} />
                 </div>
                 <span className={cn("text-[10px] font-semibold", theme === id ? "text-orange-700 dark:text-orange-400" : "text-gray-600 dark:text-gray-400")}>
@@ -140,42 +149,45 @@ export const PreferencesTab = () => {
         <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
           <div className="mb-3">
             <h3 className="text-[13px] font-bold text-gray-900 dark:text-white">Preferred Display</h3>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Choose your preferred display settings</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Persisted locally on this device</p>
           </div>
           <div className="space-y-3">
-            {[
-              { label: "Default Currency Display", value: currency, setter: setCurrency, options: ["Nigeria Naira (₦)", "US Dollar ($)", "Euro (€)", "British Pound (£)"] },
-              { label: "Rows Per Page (Tables)", value: rowsPerPage, setter: setRowsPerPage, options: ["10 Rows", "25 Rows", "50 Rows", "100 Rows"] },
-            ].map(({ label, value, setter, options }) => (
-              <div key={label} className="space-y-1">
-                <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">{label}</p>
-                <div className="relative">
-                  <select
-                    value={value}
-                    onChange={(e) => setter(e.target.value)}
-                    className="w-full appearance-none pl-3 pr-8 h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40 focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-all focus:outline-none"
-                  >
-                    {options.map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                </div>
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Default Currency Display</p>
+              <div className="relative">
+                <select value={currency} onChange={(e) => handleCurrencyChange(e.target.value)}
+                  className="w-full appearance-none pl-3 pr-8 h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40 focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-all focus:outline-none"
+                >
+                  {["Nigeria Naira (₦)", "US Dollar ($)", "Euro (€)", "British Pound (£)"].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
               </div>
-            ))}
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Rows Per Page (Tables)</p>
+              <div className="relative">
+                <select value={rowsPerPage} onChange={(e) => handleRowsChange(e.target.value)}
+                  className="w-full appearance-none pl-3 pr-8 h-9 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border border-transparent hover:border-gray-200/60 dark:hover:border-gray-700/40 focus:border-orange-300 dark:focus:border-orange-500/30 rounded-[10px] text-[12px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-all focus:outline-none"
+                >
+                  {["10 Rows", "25 Rows", "50 Rows", "100 Rows"].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Save Button */}
       <div>
-        <button
-          onClick={() => setSaveOpen(true)}
-          className="px-6 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all duration-200 shadow-md shadow-orange-500/20"
+        <button onClick={() => setSaveOpen(true)}
+          className="px-6 py-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold rounded-full hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20"
         >
           Save Changes
         </button>
       </div>
 
-      {/* Save Confirmation Dialog */}
+      {/* Save Dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="bg-white dark:bg-[#1C1C1C] border border-gray-200/50 dark:border-gray-700/30 rounded-[20px] shadow-2xl max-w-sm">
           <DialogHeader>
@@ -185,15 +197,12 @@ export const PreferencesTab = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <button
-              onClick={() => setSaveOpen(false)}
+            <button onClick={() => setSaveOpen(false)}
               className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all"
             >
               Cancel
             </button>
-            <button
-              onClick={() => savePrefs.mutate()}
-              disabled={savePrefs.isPending}
+            <button onClick={() => savePrefs.mutate()} disabled={savePrefs.isPending}
               className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60"
             >
               {savePrefs.isPending ? "Saving…" : "Save Changes"}
