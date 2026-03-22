@@ -102,10 +102,10 @@ const Login = ({ onLogin }: LoginProps) => {
   };
 
   const stats = [
-    { label: "Active Users",   value: "5,247"  },
-    { label: "Monthly Volume", value: "₦45.2M" },
-    { label: "Uptime",         value: "99.9%"  },
-  ];
+  { label: "Active",    value: "Gift Cards" },
+  { label: "Active",        value: "Crypto" },
+  { label: "Active",    value: "Game Topup" },
+];
 
   return (
     <div

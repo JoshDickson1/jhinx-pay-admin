@@ -129,7 +129,7 @@ const navigate = useNavigate();
                         ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
                         : status === "pending"
                         ? "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400"
-                        : "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400"
+                        : "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
                     }`}
                   >
                     {status}

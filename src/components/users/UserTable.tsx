@@ -84,7 +84,8 @@ const StatusBadge = ({ status, isFlagged }: { status: string; isFlagged: boolean
   );
 };
 
-const formatVolume  = (v: number) => v === 0 ? "₦0" : `₦${v.toLocaleString("en-NG")}`;
+const formatVolume = (v: number | undefined | null) =>
+  !v || v === 0 ? "₦0" : `₦${v.toLocaleString("en-NG")}`;
 const formatJoinDate = (d: string) =>
   new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
 const formatDate = (d: string | null) => {
@@ -165,7 +166,8 @@ export const UserTable = () => {
 
   const [search,      setSearch]      = useState("");
   const [kycFilter,   setKycFilter]   = useState("all");
-  const [activeTab,   setActiveTab]   = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
+const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page,        setPage]        = useState(1);
   const [actionDialog, setActionDialog] = useState<{ type: ActionType; userId: string; name: string } | null>(null);
   const [actionReason, setActionReason] = useState("");
@@ -176,21 +178,38 @@ export const UserTable = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["users", page, search, kycFilter, activeTab],
     queryFn: () => {
-      const endpoint = activeTab === "kyc" ? "/admin/users/pending-kyc" : "/admin/users";
-      return api.get(endpoint, {
-        params: {
-          page,
-          limit,
-          search:     search || undefined,
-          tier:       activeTab !== "kyc" && kycFilter !== "all" ? kycFilter : undefined,
-          is_flagged: activeTab === "flagged" ? true : undefined,
-        },
-      }).then((r) => r.data);
+  const endpoint = activeTab === "kyc" ? "/admin/users/pending-kyc" : "/admin/users";
+  return api.get(endpoint, {
+    params: {
+      page,
+      limit,
+      search: search || undefined,
+      tier: activeTab !== "kyc" && kycFilter !== "all" ? kycFilter : undefined,
+      is_flagged: activeTab === "flagged" ? true : undefined,
+status: statusFilter,
     },
+  }).then((r) => {
+    const raw = r.data;
+    // Normalize — pending-kyc may return items without volume_ngn
+    const items = (raw?.items ?? []).map((u: any) => ({
+      ...u,
+      volume_ngn: u.volume_ngn ?? 0,
+      status: u.status ?? "Active",
+      is_flagged: u.is_flagged ?? false,
+      tier: u.tier ?? 0,
+    }));
+    return { ...raw, items };
+  });
+},
   });
 
-  const users: User[] = data?.items ?? [];
-  const total: number = data?.total ?? 0;
+  const rawUsers: User[] = data?.items ?? [];
+const users: User[] = rawUsers.filter((u) => {
+  if (statusFilter === "frozen") return u.status?.toLowerCase() === "frozen";
+  if (statusFilter === "banned") return u.status?.toLowerCase() === "banned";
+  return true;
+});
+const total: number = data?.total ?? users.length;
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -310,22 +329,31 @@ export const UserTable = () => {
       <div className="w-full flex justify-start">
         <div className="bg-white dark:bg-[#1C1C1C] border border-gray-100 dark:border-white/5 h-14 p-1.5 rounded-full shadow-sm flex items-center gap-2">
           {[
-            { value: "all",     label: "All Users"     },
-            { value: "kyc",     label: "Pending KYC"   },
-            { value: "flagged", label: "Flagged Users"  },
-          ].map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => { setActiveTab(tab.value); setPage(1); }}
-              className={cn(
-                "rounded-full px-6 py-2.5 text-[13px] font-medium transition-all",
-                activeTab === tab.value
-                  ? "bg-gradient-to-br from-orange-300 to-orange-600 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              )}
-            >
-              {tab.label}
-            </button>
+  { value: "all",     label: "All Users"    },
+  { value: "kyc",     label: "Pending KYC"  },
+  { value: "flagged", label: "Flagged"       },
+  { value: "frozen",  label: "Frozen"        },
+  { value: "banned",  label: "Banned"        },
+].map((tab) => (
+  <button
+    key={tab.value}
+    onClick={() => {
+      setActiveTab(tab.value);
+      setPage(1);
+      // Set status filter for status-based tabs
+      if (tab.value === "frozen") setStatusFilter("frozen");
+      else if (tab.value === "banned") setStatusFilter("banned");
+      else setStatusFilter(undefined);
+    }}
+    className={cn(
+      "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all whitespace-nowrap",
+      activeTab === tab.value
+        ? "bg-gradient-to-br from-orange-300 to-orange-600 text-white shadow-sm"
+        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+    )}
+  >
+    {tab.label}
+  </button>
           ))}
         </div>
       </div>
@@ -523,9 +551,11 @@ export const UserTable = () => {
         {/* Pagination */}
         <div className="p-4 bg-[#F5F5F5]/30 dark:bg-[#2D2B2B]/30 flex items-center justify-between border-t border-gray-200/30 dark:border-gray-700/30">
           <p className="text-[13px] text-gray-600 dark:text-gray-400">
-            Showing <span className="font-semibold text-gray-900 dark:text-white">{users.length}</span> of{" "}
-            <span className="font-semibold text-gray-900 dark:text-white">{total.toLocaleString()}</span> users
-          </p>
+  Showing <span className="font-semibold text-gray-900 dark:text-white">{users.length}</span> of{" "}
+  <span className="font-semibold text-gray-900 dark:text-white">
+    {(statusFilter ? users.length : total).toLocaleString()}
+  </span> users
+</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="h-9 px-4 rounded-full bg-white/80 dark:bg-[#1C1C1C]/90 border-gray-200/50 dark:border-gray-700/30 text-[13px] font-medium disabled:opacity-40">
               <ChevronLeft className="w-4 h-4 mr-1" /> Previous

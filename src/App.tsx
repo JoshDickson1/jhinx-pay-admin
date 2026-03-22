@@ -37,6 +37,7 @@ import Preferences from "@/pages/Preferences";
 import SystemHealth from "@/pages/SystemHealth";
 import AllNotifications from "@/pages/AllNotifications";
 import RateControl from "@/pages/RateControl";
+import AuditLog from "./pages/AuditLog";
 
 const App = () => {
   const [loaded, setLoaded] = useState(false);
@@ -85,7 +86,7 @@ const App = () => {
                             <Route path="/settings/features" element={<FeatureControls />} />
                             <Route path="/reports" element={<Reports />} />
                             <Route path="/reports/export" element={<Reports />} />
-                            {/* <Route path="/audit-log" element={<AuditLog />} /> */}
+                            <Route path="/audit-log" element={<AuditLog />} />
                             <Route path="/admin-profiles" element={<AdminProfiles />} />
                             <Route path="/profile" element={<MyProfile />} />
                             <Route path="/preferences" element={<Preferences />} />

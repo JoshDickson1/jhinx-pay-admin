@@ -131,12 +131,6 @@ const Support = () => {
     queryFn: () => api.get("/admin/support/tickets/stats").then((r) => r.data),
   });
 
-  const metricCards = [
-    { label: "Open Tickets",        value: statsData?.open_tickets?.value        ?? 0, delta: statsData?.open_tickets?.delta_pct,        Icon: AlertTriangle },
-    { label: "Pending Response",    value: statsData?.pending_response?.value    ?? 0, delta: statsData?.pending_response?.delta_pct,    Icon: Clock         },
-    { label: "Resolved Today",      value: statsData?.resolved_today?.value      ?? 0, delta: statsData?.resolved_today?.delta_pct,      Icon: CheckCircle   },
-    { label: "Avg Resolution Time", value: statsData?.avg_resolution_time_seconds ? formatDuration(statsData.avg_resolution_time_seconds) : "—", delta: null, Icon: Clock },
-  ];
 
   // ── Ticket list ────────────────────────────────────────────────────────────
   const { data: ticketsData, isLoading: ticketsLoading } = useQuery({
@@ -155,12 +149,24 @@ const Support = () => {
     placeholderData: (prev) => prev,
   });
 
-  const tickets: TicketItem[] = ticketsData?.items ?? [];
-  const total: number         = ticketsData?.pagination?.total ?? 0;
-  const totalPages            = Math.max(1, Math.ceil(total / LIMIT));
+const tickets: TicketItem[] = ticketsData?.items ?? [];
+const total: number         = ticketsData?.pagination?.total ?? 0;
+const totalPages            = Math.max(1, Math.ceil(total / LIMIT));
 
-  const applyFilter = (setter: (v: string) => void) => (v: string) => { setter(v); setPage(1); };
+const applyFilter = (setter: (v: string) => void) => (v: string) => { setter(v); setPage(1); };
 
+// Derive counts from ticket list
+const openCount     = tickets.filter(t => t.status === "Open").length;
+const pendingCount  = tickets.filter(t => t.status === "Pending").length;
+const closedCount   = tickets.filter(t => t.status === "Closed").length;
+const resolvedCount = tickets.filter(t => t.status === "Resolved").length;
+
+const metricCards = [
+  { label: "Total Tickets",      value: ticketsLoading ? "—" : total,                        delta: null,                                      Icon: MessageCircle },
+  { label: "Open / Pending",     value: ticketsLoading ? "—" : openCount + pendingCount,     delta: statsData?.open_tickets?.delta_pct ?? null, Icon: AlertTriangle },
+  { label: "Closed / Resolved",  value: ticketsLoading ? "—" : closedCount + resolvedCount,  delta: statsData?.resolved_today?.delta_pct ?? null, Icon: CheckCircle },
+  { label: "Avg Resolution",     value: statsData?.avg_resolution_time_seconds ? formatDuration(statsData.avg_resolution_time_seconds) : "—", delta: null, Icon: Clock },
+];
   // ── Mutations ──────────────────────────────────────────────────────────────
   const resolveMutation = useMutation({
     mutationFn: (ticket_id: string) =>
@@ -208,10 +214,10 @@ const Support = () => {
               </div>
             </div>
             <div>
-              {statsLoading
-                ? <Skeleton className="h-7 w-12" />
-                : <p className="text-[22px] font-bold text-gray-900 dark:text-white leading-none">{value}</p>
-              }
+              {statsLoading || ticketsLoading
+  ? <Skeleton className="h-7 w-12" />
+  : <p className="text-[22px] font-bold text-gray-900 dark:text-white leading-none">{value}</p>
+}
               {delta !== null && delta !== undefined && (
                 <p className={cn("text-[11px] mt-1 flex items-center gap-1", delta >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400")}>
                   {delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}

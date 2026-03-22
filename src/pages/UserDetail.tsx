@@ -284,6 +284,9 @@ const UserDetail = () => {
     }
   };
 
+  const [localNotes, setLocalNotes] = useState<{ note: string; time: string }[]>([]);
+const [savingNote, setSavingNote] = useState(false);
+
   // ── Loading / error states ────────────────────────────────────────────────
 
   if (isLoading) {
@@ -560,21 +563,59 @@ const UserDetail = () => {
               </div>
 
               {/* Admin Notes */}
-              <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
-                <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Admin Notes</h3>
-                <Textarea
-                  placeholder="Add an internal note about this user..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[12px] min-h-[80px] resize-none mb-3"
-                />
-                <button
-                  disabled={!newNote.trim()}
-                  className="w-full py-2 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-50"
-                >
-                  Save Note
-                </button>
-              </div>
+<div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm p-4">
+  <h3 className="text-[13px] font-bold text-gray-900 dark:text-white mb-3">Admin Notes</h3>
+
+  {/* Existing notes */}
+  {localNotes.length > 0 && (
+    <div className="space-y-2 mb-3">
+      {localNotes.map((n, i) => (
+        <div key={i} className="px-3 py-2.5 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-[10px]">
+          <p className="text-[12px] text-gray-800 dark:text-gray-200">{n.note}</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{n.time}</p>
+        </div>
+      ))}
+    </div>
+  )}
+
+  <Textarea
+    placeholder="Add an internal note about this user..."
+    value={newNote}
+    onChange={(e) => setNewNote(e.target.value)}
+    className="bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[12px] min-h-[80px] resize-none mb-3"
+  />
+
+  <div className="flex items-center justify-between gap-2">
+    <p className="text-[10px] text-orange-400/80 dark:text-orange-500/60">
+      ⚠ Notes are session-only until backend adds this endpoint
+    </p>
+    <button
+      onClick={async () => {
+        if (!newNote.trim()) return;
+        setSavingNote(true);
+        try {
+          // Try API first — will work once backend implements it
+          await api.post(`/admin/users/${id}/notes`, { note: newNote.trim() });
+          toast.success("Note saved");
+        } catch {
+          // Fallback — save locally
+          setLocalNotes((p) => [...p, {
+            note: newNote.trim(),
+            time: new Date().toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }),
+          }]);
+          toast.success("Note saved locally");
+        } finally {
+          setNewNote("");
+          setSavingNote(false);
+        }
+      }}
+      disabled={!newNote.trim() || savingNote}
+      className="px-5 py-2 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 text-white text-[12px] font-semibold hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-50 whitespace-nowrap"
+    >
+      {savingNote ? "Saving…" : "Save Note"}
+    </button>
+  </div>
+</div>
             </div>
           )}
 

@@ -280,6 +280,18 @@ const FeatureControls = () => {
               <Label className="text-[11px] text-gray-500 dark:text-gray-400">Expected resume time (optional)</Label>
               <Input type="datetime-local" value={pauseUntil} onChange={(e) => setPauseUntil(e.target.value)} className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
             </div>
+            <style>{`
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(6);
+  }
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 5;
+  }
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 0.8;
+  }
+`}</style>
             <div className="flex items-center gap-2.5">
               <Checkbox id="notify" checked={pauseNotify} onCheckedChange={(v) => setPauseNotify(!!v)} className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]" />
               <Label htmlFor="notify" className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">Notify users</Label>
