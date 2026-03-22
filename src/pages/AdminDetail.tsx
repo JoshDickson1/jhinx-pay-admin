@@ -169,12 +169,13 @@ const PERM_CATEGORIES = [
   },
 ];
 
-export const AdminDetail = ({ adminId, onBack }: { adminId: string; onBack: () => void }) => {
-  const qc = useQueryClient();
+export const AdminDetail = ({ adminId, onBack, initialTab = "general" }: { adminId: string; onBack: () => void; initialTab?: string }) => {  const qc = useQueryClient();
   const { admin: currentAdmin } = useAuthStore();
   const isViewingSelf = currentAdmin?.id === adminId;
 
-  const [activeTab, setActiveTab] = useState<"general" | "security" | "activity" | "permissions">("general");
+const [activeTab, setActiveTab] = useState<"general" | "security" | "activity" | "permissions">(
+  initialTab as "general" | "security" | "activity" | "permissions"
+);
   const [selectedRole, setSelectedRole] = useState("");
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);

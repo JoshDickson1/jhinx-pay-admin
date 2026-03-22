@@ -275,9 +275,9 @@ const FeatureControls = () => {
             <DialogTitle className="text-[15px] font-bold text-gray-900 dark:text-white">Pause "{pauseTarget?.name}"?</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
-            <Input value={pauseReason} onChange={(e) => setPauseReason(e.target.value)} placeholder="Reason for pausing (optional)" className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
+            <Input value={pauseReason} onChange={(e) => setPauseReason(e.target.value)} placeholder="Reason for pausing required *" className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
             <div className="space-y-1">
-              <Label className="text-[11px] text-gray-500 dark:text-gray-400">Expected resume time (optional)</Label>
+              <Label className="text-[11px] text-gray-500 dark:text-gray-400">Expected resume time is required *</Label>
               <Input type="datetime-local" value={pauseUntil} onChange={(e) => setPauseUntil(e.target.value)} className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
             </div>
             <style>{`
@@ -299,7 +299,8 @@ const FeatureControls = () => {
           </div>
           <DialogFooter className="gap-2">
             <button onClick={() => setPauseTarget(null)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">Cancel</button>
-            <button disabled={pauseMutation.isPending} onClick={() => pauseTarget && pauseMutation.mutate({ slug: pauseTarget.slug, reason: pauseReason || undefined, until: pauseUntil || undefined })} className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-1.5">
+            <button onClick={() => pauseTarget && pauseMutation.mutate({ slug: pauseTarget.slug, reason: pauseReason || undefined, until: pauseUntil || undefined })}
+disabled={pauseMutation.isPending || !pauseReason.trim()} className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-1.5">
               {pauseMutation.isPending ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Pausing…</> : "Pause Feature"}
             </button>
           </DialogFooter>
@@ -317,7 +318,7 @@ const FeatureControls = () => {
               <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
               <p className="text-[11px] text-orange-700 dark:text-orange-400">This will immediately disable all {pauseAllCat?.toLowerCase()} features for all users.</p>
             </div>
-            <Input value={pauseAllReason} onChange={(e) => setPauseAllReason(e.target.value)} placeholder="Reason for pausing (optional)" className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
+            <Input value={pauseAllReason} onChange={(e) => setPauseAllReason(e.target.value)} placeholder="Reason for pausing required *" className="h-10 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 rounded-[12px] text-[13px]" />
             <div className="flex items-center gap-2.5">
               <Checkbox id="notify-all" checked={pauseAllNotify} onCheckedChange={(v) => setPauseAllNotify(!!v)} className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 rounded-[4px]" />
               <Label htmlFor="notify-all" className="text-[12px] font-normal text-gray-700 dark:text-gray-300 cursor-pointer">Notify users</Label>
@@ -325,7 +326,7 @@ const FeatureControls = () => {
           </div>
           <DialogFooter className="gap-2">
             <button onClick={() => setPauseAllCat(null)} className="flex-1 py-2 rounded-full text-[12px] font-medium bg-[#F5F5F5] dark:bg-[#2D2B2B] text-gray-700 dark:text-gray-300 hover:bg-[#DFDFDF] dark:hover:bg-[#3A3737] transition-all">Cancel</button>
-            <button disabled={pauseAllMutation.isPending} onClick={() => pauseAllCat && pauseAllMutation.mutate({ category: pauseAllCat, reason: pauseAllReason || undefined })} className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-1.5">
+            <button disabled={pauseAllMutation.isPending || !pauseAllReason.trim()} onClick={() => pauseAllCat && pauseAllMutation.mutate({ category: pauseAllCat, reason: pauseAllReason || undefined })} className="flex-1 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600 transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-1.5">
               {pauseAllMutation.isPending ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Pausing…</> : "Pause All"}
             </button>
           </DialogFooter>

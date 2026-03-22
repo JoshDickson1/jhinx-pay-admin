@@ -38,6 +38,7 @@ import SystemHealth from "@/pages/SystemHealth";
 import AllNotifications from "@/pages/AllNotifications";
 import RateControl from "@/pages/RateControl";
 import AuditLog from "./pages/AuditLog";
+import { ActivityLogsTab } from "./components/dashboard/ActivityLogsTab";
 
 const App = () => {
   const [loaded, setLoaded] = useState(false);
@@ -80,6 +81,7 @@ const App = () => {
                             <Route path="/support" element={<HelpCenter />} />
                             {/* <Route path="/settings" element={<Settings />} /> */}
                             <Route path="/settings/rates" element={<RateControl />} />
+                            <Route path="/activity-logs" element={<ActivityLogsTab />} />
                             <Route path="/settings/limits" element={<TransactionLimits />} />
                             <Route path="/settings/games" element={<SupportedGames />} />
                             <Route path="/settings/notifications" element={<SystemNotifications />} />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -25,7 +25,6 @@ interface LogEntry {
   created_at: string;
 }
 
-// Parse user_agent into OS + browser
 const parseUA = (ua: string) => {
   const browser = ua.includes("Edg") ? "Edge"
     : ua.includes("Chrome") ? "Chrome"
@@ -43,9 +42,6 @@ const parseUA = (ua: string) => {
   return { browser, os };
 };
 
-// Convert action string to readable label
-// e.g. "admin.login.json" → "Login"
-// e.g. "admin.security.password.change" → "Password Change"
 const formatAction = (action: string) => {
   const map: Record<string, string> = {
     "admin.login.json": "Login",
@@ -61,7 +57,6 @@ const formatAction = (action: string) => {
   return map[action] ?? action.split(".").slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 };
 
-// Map action to section category
 const getSection = (action: string) => {
   if (action.includes("login") || action.includes("logout")) return "System";
   if (action.includes("password") || action.includes("session")) return "Security";
@@ -72,17 +67,17 @@ const getSection = (action: string) => {
 };
 
 const sectionColors: Record<string, string> = {
-  System: "bg-gray-100 text-gray-600 border-gray-200/60 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-700/40",
-  Security: "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
+  System:       "bg-gray-100 text-gray-600 border-gray-200/60 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-700/40",
+  Security:     "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
   Transactions: "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",
-  Users: "bg-purple-50 text-purple-600 border-purple-200/60 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20",
-  Settings: "bg-orange-50 text-orange-600 border-orange-200/60 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20",
+  Users:        "bg-purple-50 text-purple-600 border-purple-200/60 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20",
+  Settings:     "bg-orange-50 text-orange-600 border-orange-200/60 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20",
 };
 
 const statusColors: Record<string, string> = {
   SUCCESS: "bg-green-50 text-green-600 border-green-200/60 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20",
-  FAILED: "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
-  ERROR: "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
+  FAILED:  "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
+  ERROR:   "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20",
 };
 
 const formatDate = (d: string) =>
@@ -91,30 +86,37 @@ const formatDate = (d: string) =>
     hour: "2-digit", minute: "2-digit",
   });
 
-const useAdminLogs = (page: number, search: string, sort: string) =>
-  useQuery({
-    queryKey: ["admin", "logs", page, search, sort],
-    queryFn: () =>
-      api.get("/admin/admin-logs", {
-        params: {
-          page,
-          limit: 25,
-          search: search || undefined,
-          order: sort === "Newest First" ? "desc" : "asc",
-        },
-      }).then((r) => r.data),
-  });
-
 export const ActivityLogsTab = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("Newest First");
-  const [page, setPage] = useState(1);
   const [viewEntry, setViewEntry] = useState<LogEntry | null>(null);
 
-  const { data, isLoading } = useAdminLogs(page, search, sort);
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "logs", search],
+    queryFn: () =>
+      api.get("/admin/admin-logs", {
+        params: { limit: 50, search: search || undefined },
+      }).then((r) => r.data),
+  });
 
-  const logs: LogEntry[] = data?.items ?? data?.logs ?? data?.data ?? [];
-  const total: number = data?.total ?? logs.length;
+  const rawLogs: LogEntry[] = data?.items ?? data?.logs ?? data?.data ?? [];
+
+  const logs: LogEntry[] = [...rawLogs]
+    .filter((log) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        log.action.toLowerCase().includes(q) ||
+        formatAction(log.action).toLowerCase().includes(q) ||
+        (log.ip_address ?? "").includes(q) ||
+        (log.resource_type ?? "").toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      return sort === "Newest First" ? bTime - aTime : aTime - bTime;
+    });
 
   return (
     <div className="bg-white/80 dark:bg-[#1C1C1C]/90 backdrop-blur-xl rounded-[16px] border border-gray-200/50 dark:border-gray-700/30 shadow-sm overflow-hidden w-full">
@@ -126,7 +128,7 @@ export const ActivityLogsTab = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             <Input
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search activities..."
               className="pl-8 h-8 bg-[#F5F5F5]/80 dark:bg-[#2D2B2B]/80 rounded-full border-transparent focus:border-orange-300 dark:focus:border-orange-500/30 focus-visible:ring-0 focus-visible:ring-offset-0 text-[12px] placeholder:text-gray-400 dark:placeholder:text-gray-500"
             />
@@ -260,28 +262,16 @@ export const ActivityLogsTab = () => {
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="px-4 py-3 border-t border-gray-100/80 dark:border-gray-700/20 flex items-center justify-between gap-2">
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-gray-100/80 dark:border-gray-700/20">
         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          Showing <span className="font-semibold text-gray-900 dark:text-white">{logs.length}</span> of{" "}
-          <span className="font-semibold text-gray-900 dark:text-white">{total.toLocaleString()}</span>
+          Showing{" "}
+          <span className="font-semibold text-gray-900 dark:text-white">{logs.length}</span>{" "}
+          of{" "}
+          <span className="font-semibold text-gray-900 dark:text-white">{rawLogs.length}</span>{" "}
+          entries
+          {search && <span className="text-gray-400"> (filtered)</span>}
         </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium bg-white dark:bg-[#1C1C1C] border border-gray-200/60 dark:border-gray-700/40 text-gray-700 dark:text-gray-300 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all disabled:opacity-40"
-          >
-            <ChevronLeft className="w-3 h-3" /> Prev
-          </button>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={logs.length < 25}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium bg-white dark:bg-[#1C1C1C] border border-gray-200/60 dark:border-gray-700/40 text-gray-700 dark:text-gray-300 hover:bg-[#F5F5F5] dark:hover:bg-[#2D2B2B] transition-all disabled:opacity-40"
-          >
-            Next <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
       </div>
 
       {/* View Entry Dialog */}
@@ -296,17 +286,19 @@ export const ActivityLogsTab = () => {
             return (
               <div className="space-y-3 py-1">
                 {[
-                  { label: "Timestamp", value: formatDate(viewEntry.created_at) },
-                  { label: "Action", value: formatAction(viewEntry.action) },
-                  { label: "Section", value: getSection(viewEntry.action) },
-                  { label: "Device", value: `${os} · ${browser}` },
-                  { label: "IP Address", value: viewEntry.ip_address },
-                  { label: "Status", value: viewEntry.status },
-                  ...(viewEntry.resource_type ? [{ label: "Resource", value: `${viewEntry.resource_type}` }] : []),
-                  ...(viewEntry.details ? Object.entries(viewEntry.details).map(([k, v]) => ({
-                    label: k.charAt(0).toUpperCase() + k.slice(1),
-                    value: String(v),
-                  })) : []),
+                  { label: "Timestamp",  value: formatDate(viewEntry.created_at)         },
+                  { label: "Action",     value: formatAction(viewEntry.action)            },
+                  { label: "Section",    value: getSection(viewEntry.action)              },
+                  { label: "Device",     value: `${os} · ${browser}`                     },
+                  { label: "IP Address", value: viewEntry.ip_address                     },
+                  { label: "Status",     value: viewEntry.status                         },
+                  ...(viewEntry.resource_type ? [{ label: "Resource", value: viewEntry.resource_type }] : []),
+                  ...(viewEntry.details
+                    ? Object.entries(viewEntry.details).map(([k, v]) => ({
+                        label: k.charAt(0).toUpperCase() + k.slice(1),
+                        value: String(v),
+                      }))
+                    : []),
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-start justify-between gap-4">
                     <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">{label}</span>

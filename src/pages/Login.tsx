@@ -153,7 +153,7 @@ const Login = ({ onLogin }: LoginProps) => {
 
           <div className="flex items-center gap-6">
             {stats.map(({ label, value }, i) => (
-              <div key={label} className="flex items-center gap-6">
+              <div key={value} className="flex items-center gap-6">
                 <div>
                   <p className="text-[24px] font-bold text-orange-400">{value}</p>
                   <p className="text-[11px] text-gray-500">{label}</p>

@@ -96,12 +96,14 @@ const AdminProfiles = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newAdmin, setNewAdmin] = useState({
     full_name: "", email: "", password: "", confirmPassword: "", role: "staff",
   });
   const limit = 25;
+
+  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
+const [initialTab, setInitialTab] = useState<string>("general");
 
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
@@ -123,8 +125,15 @@ const [showNewAdminPassword, setShowNewAdminPassword] = useState<Record<string, 
       }).then((r) => r.data),
   });
 
-  const admins: AdminUser[] = data?.items ?? [];
-  const total: number = data?.total ?? 0;
+  const roleOrder: Record<string, number> = {
+  superadmin: 0, admin: 1, staff: 2,
+  operations_admin: 3, support_lead: 4,
+  finance_admin: 5, compliance_admin: 6, read_only: 7,
+};
+const admins: AdminUser[] = [...(data?.items ?? [])].sort(
+  (a, b) => (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99)
+);
+const total: number = data?.total ?? 0;
 
   const createMutation = useMutation({
     mutationFn: () => api.post("/admin/users", {
@@ -147,8 +156,8 @@ const [showNewAdminPassword, setShowNewAdminPassword] = useState<Record<string, 
   });
 
   if (selectedAdminId) {
-    return <AdminDetail adminId={selectedAdminId} onBack={() => setSelectedAdminId(null)} />;
-  }
+  return <AdminDetail adminId={selectedAdminId} onBack={() => setSelectedAdminId(null)} initialTab={initialTab} />;
+}
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -257,7 +266,7 @@ const [showNewAdminPassword, setShowNewAdminPassword] = useState<Record<string, 
                   <tr
                     key={adm.id}
                     className="border-t border-gray-200/30 dark:border-gray-700/30 hover:bg-[#F5F5F5]/50 dark:hover:bg-[#2D2B2B]/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedAdminId(adm.id)}
+                    onClick={() => { setSelectedAdminId(adm.id); setInitialTab("general"); }}
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -306,22 +315,28 @@ const [showNewAdminPassword, setShowNewAdminPassword] = useState<Record<string, 
                           <DropdownMenuContent align="end" className="bg-white/95 dark:bg-[#1C1C1C]/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-700/30 rounded-[16px] p-2">
                             <DropdownMenuLabel className="text-[12px] font-semibold">Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
-                            <DropdownMenuItem onClick={() => setSelectedAdminId(adm.id)} className="rounded-[10px] text-[13px] cursor-pointer">
-                              <Eye className="w-4 h-4 mr-2" /> View Profile
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSelectedAdminId(adm.id)} className="rounded-[10px] text-[13px] cursor-pointer">
-                              <UserCog className="w-4 h-4 mr-2" /> Edit Role
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
                             <DropdownMenuItem
-                              onClick={() => setSelectedAdminId(adm.id)}
-                              className={cn("rounded-[10px] text-[13px] cursor-pointer", adm.is_active ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400")}
-                            >
-                              {adm.is_active
-                                ? <><Lock className="w-4 h-4 mr-2" /> Suspend</>
-                                : <><CheckCircle className="w-4 h-4 mr-2" /> Reactivate</>
-                              }
-                            </DropdownMenuItem>
+  onClick={() => { setSelectedAdminId(adm.id); setInitialTab("general"); }}
+  className="rounded-[10px] text-[13px] cursor-pointer"
+>
+  <Eye className="w-4 h-4 mr-2" /> View Profile
+</DropdownMenuItem>
+<DropdownMenuItem
+  onClick={() => { setSelectedAdminId(adm.id); setInitialTab("general"); }}
+  className="rounded-[10px] text-[13px] cursor-pointer"
+>
+  <UserCog className="w-4 h-4 mr-2" /> Edit Role
+</DropdownMenuItem>
+<DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/30" />
+<DropdownMenuItem
+  onClick={() => { setSelectedAdminId(adm.id); setInitialTab("security"); }}
+  className={cn("rounded-[10px] text-[13px] cursor-pointer", adm.is_active ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400")}
+>
+  {adm.is_active
+    ? <><Lock className="w-4 h-4 mr-2" /> Suspend</>
+    : <><CheckCircle className="w-4 h-4 mr-2" /> Reactivate</>
+  }
+</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}

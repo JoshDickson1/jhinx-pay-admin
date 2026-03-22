@@ -200,7 +200,15 @@ export const AdminSidebar = () => {
         { to: "/settings/features", label: "Feature Controls" },
       ],
     },
-    { to: "/admin-profiles", icon: UserCog, label: "Admin Profiles" },
+    {
+  to: "/admin-profiles",
+  icon: UserCog,
+  label: "Admin & Access",
+  children: [
+    { to: "/admin-profiles", label: "Admin Profiles" },
+    { to: "/audit-log", label: "Audit Logs" },
+  ],
+},
   ];
 
   const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
